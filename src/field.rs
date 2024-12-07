@@ -1,5 +1,7 @@
 use std::ops;
 
+use rand::Rng;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Field<const P: u64> {
     v: u64,
@@ -23,19 +25,80 @@ fn gcd(a: u64, b: u64) -> u64 {
 }
 
 // returns: x, y, d
-fn extended_gcd(a: i64, b: i64) -> (i64, i64, i64) {
-    if a == 0 {
-        return (0, 1, a);
+// fn extended_gcd(a: i64, b: i64) -> (i64, i64, i64) {
+//     if a == 0 {
+//         return (0, 1, a);
+//     }
+//     let (x1, y1, d) = extended_gcd(b % a, a);
+//     (y1 - x1 * (b / a), x1, d)
+// }
+fn extended_gcd(a: u64, b: u64) -> (u64, i64, i64) {
+    let (mut old_r, mut r) = (a as i64, b as i64);
+    let (mut old_s, mut s) = (1, 0);
+    let (mut old_t, mut t) = (0, 1);
+
+    while r != 0 {
+        let quotient = old_r / r;
+        (old_r, r) = (r, old_r - quotient * r);
+        (old_s, s) = (s, old_s - quotient * s);
+        (old_t, t) = (t, old_t - quotient * t);
     }
-    let (x1, y1, d) = extended_gcd(b % a, a);
-    (y1 - x1 * (b / a), x1, d)
+
+    (old_r as u64, old_s, old_t) // gcd, Bezout coefficients
 }
 
 impl<const P: u64> Field<P> {
+    pub const fn zero() -> Self {
+        Self::new(0)
+    }
+
+    pub const fn one() -> Self {
+        Self::new(1)
+    }
+
     pub fn invert(self) -> Self {
-        assert!(gcd(P, self.v) == 1);
-        let (x, _y, _d) = extended_gcd(self.v as i64, P as i64);
-        Self { v: x as u64 }
+        assert!(gcd(P, self.v) == 1, "a: {}", self);
+        // let (x, _y, _d) = extended_gcd(self.v as i64, P as i64);
+        // let (_d, x, y) = extended_gcd(self.v, P);
+        // Self::new(x as u64)
+        self.pow(P - 2)
+    }
+
+    pub fn pow(self, p: u64) -> Self {
+        if p == 0 {
+            Self::new(1)
+        } else if p == 1 {
+            self
+        } else {
+            let m = self.pow(p / 2);
+            let r = self.pow(p % 2);
+            m * m * r
+        }
+    }
+
+    pub fn random<R: Rng>(r: &mut R) -> Self {
+        let l = r.next_u64();
+        Self::new(l)
+    }
+
+    pub fn random_nonzero<R: Rng>(r: &mut R) -> Self {
+        let res = Self::random(r);
+        if res == Self::zero() {
+            res + Self::one()
+        } else {
+            res
+        }
+    }
+
+    pub fn sqrt(self) -> Option<Self> {
+        if self.pow((P - 1) / 2) != Self::one() {
+            return None;
+        }
+        if P % 4 == 3 {
+            Some(self.pow((P + 1) / 4))
+        } else {
+            todo!();
+        }
     }
 }
 
@@ -176,8 +239,8 @@ mod tests {
     fn div_circ() {
         let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
         for _ in 0..100 {
-            let a = F::new(gen.next_u32() as u64);
-            let b = F::new((gen.next_u32() + 1) as u64);
+            let a = F::random(&mut gen);
+            let b = F::random_nonzero(&mut gen);
             assert_eq!((a / b) * b, a, "a: {}, b: {}, a/b: {}", a, b, a / b);
         }
     }
@@ -186,7 +249,7 @@ mod tests {
     fn inv_circ() {
         let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
         for _ in 0..100 {
-            let a = F::new((gen.next_u32() + 1) as u64);
+            let a = F::random_nonzero(&mut gen);
             assert_eq!(a.invert() * a, F::new(1), "a: {}, a^-1: {}", a, a.invert());
         }
     }
@@ -195,8 +258,8 @@ mod tests {
     fn sub_circ() {
         let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
         for _ in 0..100 {
-            let a = F::new(gen.next_u32() as u64);
-            let b = F::new(gen.next_u32() as u64);
+            let a = F::random(&mut gen);
+            let b = F::random(&mut gen);
             assert_eq!(a - b + b, a, "a: {}, b: {}", a, b);
         }
     }
