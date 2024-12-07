@@ -24,14 +24,7 @@ fn gcd(a: u64, b: u64) -> u64 {
     }
 }
 
-// returns: x, y, d
-// fn extended_gcd(a: i64, b: i64) -> (i64, i64, i64) {
-//     if a == 0 {
-//         return (0, 1, a);
-//     }
-//     let (x1, y1, d) = extended_gcd(b % a, a);
-//     (y1 - x1 * (b / a), x1, d)
-// }
+// returns: d, x, y
 fn extended_gcd(a: u64, b: u64) -> (u64, i64, i64) {
     let (mut old_r, mut r) = (a as i64, b as i64);
     let (mut old_s, mut s) = (1, 0);
@@ -48,6 +41,10 @@ fn extended_gcd(a: u64, b: u64) -> (u64, i64, i64) {
 }
 
 impl<const P: u64> Field<P> {
+    pub fn nat(self) -> u64 {
+        self.v
+    }
+
     pub const fn zero() -> Self {
         Self::new(0)
     }

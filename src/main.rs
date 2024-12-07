@@ -1,7 +1,7 @@
-use std::ops;
-
+#![feature(iter_array_chunks)]
 use field::Field;
 use rand::{random, Rng};
+use std::ops;
 
 mod field;
 const MOD: u64 = 0x0014_4C3B_27FF;
@@ -27,17 +27,22 @@ impl Point {
         Self { x, y }
     }
 
+    pub fn from_x(x: Zp) -> Option<Self> {
+        let y2 = x.pow(3) + A * x + B;
+        if let Some(yres) = y2.sqrt() {
+            Some(Self::new(x, yres))
+        } else {
+            None
+        }
+    }
+
     pub fn random<R: Rng>(r: &mut R) -> Self {
-        let mut x = Zp::random(r);
-        let mut y = Zp::random(r);
-        while !curve(x, y) {
-            x = Zp::random(r);
-            let y2 = x.pow(3) + A * x + B;
-            if let Some(yres) = y2.sqrt() {
-                y = yres;
+        loop {
+            let x = Zp::random(r);
+            if let Some(p) = Self::from_x(x) {
+                return p;
             }
         }
-        Self::new(x, y)
     }
 }
 
@@ -117,9 +122,63 @@ impl PrivateKey {
     }
 }
 
+fn bytes_to_zp(input: &[u8]) -> Zp {
+    let mut bytes = [0xFFu8; 8];
+    for i in 0..bytes.len() {
+        bytes[i] = input[i];
+    }
+    Zp::new(u64::from_le_bytes(bytes))
+}
+
+fn bytes_to_point(bytes: &[u8]) -> Point {
+    assert!(bytes.len() <= 4);
+    let mut quintuple = [0u8; 5];
+    for i in 0..bytes.len() {
+        quintuple[i] = bytes[i];
+    }
+    loop {
+        let x = bytes_to_zp(&quintuple);
+        if let Some(point) = Point::from_x(x) {
+            return point;
+        }
+        quintuple[4] += 1;
+    }
+}
+
+fn text_to_points(text: &str) -> Vec<Point> {
+    let bytes = text.as_bytes();
+    let mut iter = bytes.iter().copied().array_chunks::<4>();
+    let mut res = vec![];
+    for chunk in iter.by_ref() {
+        res.push(bytes_to_point(&chunk));
+    }
+    if let Some(leftover) = iter.into_remainder() {
+        res.push(bytes_to_point(&leftover.collect::<Vec<_>>()));
+    }
+    res
+}
+
+fn point_to_bytes(point: Point) -> [u8; 5] {
+    let x = point.x.nat();
+    l 
+}
+
+fn points_to_text(points: &[Point]) -> String {
+    let mut bytes = vec![];
+    for point in points {
+        let 
+    }
+}
+
 fn main() {
     let mut rng = rand::thread_rng();
-    println!("{:?}", Point::random(&mut rng));
+    let (pr, pb) = gen_keys(&mut rng);
+    let msg = Point::random(&mut rng);
+    println!("pubkey: {:?}", pb);
+    println!("private: {:?}", pr);
+    println!("MSG: {:?}", msg);
+    println!("Encrypted: {:?}", pb.encrypt(msg));
+    println!("Decrypted: {:?}", pr.decrypt(pb.encrypt(msg)));
     // println!("{:?}", Zp::new(19381031) / Zp::new(312983120));
     // println!("Hello, world! {:?}", gen_keys());
 }
