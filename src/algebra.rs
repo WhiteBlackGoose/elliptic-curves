@@ -1,23 +1,27 @@
 use crate::base_traits::Natural;
 
-pub trait CommutativeOp<Op, C>: Sized {
-    fn op(a: Self, b: Self, c: &C) -> Self;
+pub trait Configurable: Sized {
+    type Cfg;
 }
 
-pub trait Identity<Op, C>: Sized {
-    fn identity(c: &C) -> Self;
+pub trait CommutativeOp<Op>: Configurable {
+    fn op(a: Self, b: Self, c: &Self::Cfg) -> Self;
 }
 
-pub trait Inverse<Op, C>: Sized {
-    fn inv(self, c: &C) -> Self;
+pub trait Identity<Op>: Configurable {
+    fn identity(c: &Self::Cfg) -> Self;
 }
 
-pub trait InverseNonZero<Op, C>: Sized {
-    fn inv(self, c: &C) -> Option<Self>;
+pub trait Inverse<Op>: Configurable {
+    fn inv(self, c: &Self::Cfg) -> Self;
 }
 
-pub trait CommutativeMonoid<Op, C>: Copy + CommutativeOp<Op, C> + Identity<Op, C> {
-    fn exp<I: Natural>(self, n: I, cfg: &C) -> Self {
+pub trait InverseNonZero<Op>: Configurable {
+    fn inv(self, c: &Self::Cfg) -> Option<Self>;
+}
+
+pub trait CommutativeMonoid<Op>: Copy + CommutativeOp<Op> + Identity<Op> {
+    fn exp<I: Natural>(self, n: I, cfg: &Self::Cfg) -> Self {
         if n == I::zero() {
             Identity::identity(cfg)
         } else if n == I::one() {
@@ -34,53 +38,51 @@ pub trait CommutativeMonoid<Op, C>: Copy + CommutativeOp<Op, C> + Identity<Op, C
     }
 }
 
-pub trait AbelianGroup<Op, C>: Sized + Copy + CommutativeMonoid<Op, C> + Inverse<Op, C> {}
+pub trait AbelianGroup<Op>: Sized + Copy + CommutativeMonoid<Op> + Inverse<Op> {}
 
 pub mod ops {
     pub struct Add;
     pub struct Mul;
 }
 
-pub trait Field<C>:
-    Sized
-    + AbelianGroup<ops::Add, C>
-    + CommutativeMonoid<ops::Mul, C>
-    + InverseNonZero<ops::Mul, C>
-    + Eq
+pub trait Field:
+    Sized + AbelianGroup<ops::Add> + CommutativeMonoid<ops::Mul> + InverseNonZero<ops::Mul> + Eq
 {
-    fn add(a: Self, b: Self, cfg: &C) -> Self {
-        CommutativeOp::<ops::Add, C>::op(a, b, cfg)
+    fn add(a: Self, b: Self, cfg: &Self::Cfg) -> Self {
+        CommutativeOp::<ops::Add>::op(a, b, cfg)
     }
-    fn sub(a: Self, b: Self, cfg: &C) -> Self {
-        CommutativeOp::<ops::Add, C>::op(a, Inverse::<ops::Add, C>::inv(b, cfg), cfg)
+    fn sub(a: Self, b: Self, cfg: &Self::Cfg) -> Self {
+        CommutativeOp::<ops::Add>::op(a, Inverse::<ops::Add>::inv(b, cfg), cfg)
     }
-    fn mul(a: Self, b: Self, cfg: &C) -> Self {
-        CommutativeOp::<ops::Mul, C>::op(a, b, cfg)
+    fn mul(a: Self, b: Self, cfg: &Self::Cfg) -> Self {
+        CommutativeOp::<ops::Mul>::op(a, b, cfg)
     }
-    fn div(a: Self, b: Self, cfg: &C) -> Self {
-        CommutativeOp::<ops::Mul, C>::op(
-            a,
-            InverseNonZero::<ops::Mul, C>::inv(b, cfg).unwrap(),
-            cfg,
-        )
+    fn div(a: Self, b: Self, cfg: &Self::Cfg) -> Self {
+        CommutativeOp::<ops::Mul>::op(a, InverseNonZero::<ops::Mul>::inv(b, cfg).unwrap(), cfg)
     }
-    fn zero(cfg: &C) -> Self {
-        Identity::<ops::Add, C>::identity(cfg)
+    fn zero(cfg: &Self::Cfg) -> Self {
+        Identity::<ops::Add>::identity(cfg)
     }
-    fn one(cfg: &C) -> Self {
-        Identity::<ops::Mul, C>::identity(cfg)
+    fn one(cfg: &Self::Cfg) -> Self {
+        Identity::<ops::Mul>::identity(cfg)
     }
-    fn two(cfg: &C) -> Self {
+    fn two(cfg: &Self::Cfg) -> Self {
         let one = Self::one(cfg);
         Self::add(one, one, cfg)
     }
-    fn pow<N: Natural>(self, n: N, cfg: &C) -> Self {
-        CommutativeMonoid::<ops::Mul, C>::exp(self, n, cfg)
+    fn pow<N: Natural>(self, n: N, cfg: &Self::Cfg) -> Self {
+        CommutativeMonoid::<ops::Mul>::exp(self, n, cfg)
     }
-    fn reciprocal(self, cfg: &C) -> Option<Self> {
+    fn reciprocal(self, cfg: &Self::Cfg) -> Option<Self> {
         InverseNonZero::inv(self, cfg)
     }
-    fn neg(self, cfg: &C) -> Self {
+    fn neg(self, cfg: &Self::Cfg) -> Self {
         Inverse::inv(self, cfg)
+    }
+    fn sqr(self, cfg: &Self::Cfg) -> Self {
+        Self::mul(self, self, cfg)
+    }
+    fn cube(self, cfg: &Self::Cfg) -> Self {
+        Self::mul(Self::sqr(self, cfg), self, cfg)
     }
 }

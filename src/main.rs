@@ -11,6 +11,7 @@ mod base_traits;
 mod ecc;
 mod encoding_utils;
 mod mod_field;
+mod points_group;
 
 fn main() {
     let matches = Command::new("xxx")

@@ -7,8 +7,8 @@ use rand::Rng;
 
 use crate::{
     algebra::{
-        self, AbelianGroup, CommutativeMonoid, CommutativeOp, Field, Identity, Inverse,
-        InverseNonZero,
+        self, AbelianGroup, CommutativeMonoid, CommutativeOp, Configurable, Field, Identity,
+        Inverse, InverseNonZero,
     },
     base_traits::{FromRandom, Natural},
 };
@@ -21,6 +21,10 @@ pub struct ModFieldCfg<I> {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct ModField<I: Natural> {
     val: I,
+}
+
+impl<I: Natural> Configurable for ModField<I> {
+    type Cfg = ModFieldCfg<I>;
 }
 
 fn gcd<S>(a: S, b: S) -> S
@@ -43,13 +47,13 @@ where
     }
 }
 
-impl<I: Natural> CommutativeOp<algebra::ops::Add, ModFieldCfg<I>> for ModField<I> {
+impl<I: Natural> CommutativeOp<algebra::ops::Add> for ModField<I> {
     fn op(a: Self, b: Self, c: &ModFieldCfg<I>) -> Self {
         todo!()
     }
 }
 
-impl<I: Natural> Inverse<algebra::ops::Add, ModFieldCfg<I>> for ModField<I> {
+impl<I: Natural> Inverse<algebra::ops::Add> for ModField<I> {
     fn inv(self, cfg: &ModFieldCfg<I>) -> Self {
         Self {
             val: cfg.rem - self.val,
@@ -57,34 +61,34 @@ impl<I: Natural> Inverse<algebra::ops::Add, ModFieldCfg<I>> for ModField<I> {
     }
 }
 
-impl<I: Natural> Identity<algebra::ops::Add, ModFieldCfg<I>> for ModField<I> {
+impl<I: Natural> Identity<algebra::ops::Add> for ModField<I> {
     fn identity(c: &ModFieldCfg<I>) -> Self {
         Self { val: I::zero() }
     }
 }
 
-impl<I: Natural> CommutativeOp<algebra::ops::Mul, ModFieldCfg<I>> for ModField<I> {
+impl<I: Natural> CommutativeOp<algebra::ops::Mul> for ModField<I> {
     fn op(a: Self, b: Self, c: &ModFieldCfg<I>) -> Self {
         todo!()
     }
 }
-impl<I: Natural> Identity<algebra::ops::Mul, ModFieldCfg<I>> for ModField<I> {
+impl<I: Natural> Identity<algebra::ops::Mul> for ModField<I> {
     fn identity(_c: &ModFieldCfg<I>) -> Self {
         Self { val: I::one() }
     }
 }
 
-impl<I: Natural> CommutativeMonoid<algebra::ops::Add, ModFieldCfg<I>> for ModField<I> {}
-impl<I: Natural> CommutativeMonoid<algebra::ops::Mul, ModFieldCfg<I>> for ModField<I> {}
-impl<I: Natural> AbelianGroup<algebra::ops::Add, ModFieldCfg<I>> for ModField<I> {}
+impl<I: Natural> CommutativeMonoid<algebra::ops::Add> for ModField<I> {}
+impl<I: Natural> CommutativeMonoid<algebra::ops::Mul> for ModField<I> {}
+impl<I: Natural> AbelianGroup<algebra::ops::Add> for ModField<I> {}
 
-impl<I: Natural> InverseNonZero<algebra::ops::Mul, ModFieldCfg<I>> for ModField<I> {
+impl<I: Natural> InverseNonZero<algebra::ops::Mul> for ModField<I> {
     fn inv(self, c: &ModFieldCfg<I>) -> Option<Self> {
         if gcd(c.rem, self.nat()) != I::one() {
             return None;
         }
         // Little Fermat's theorem
-        Some(CommutativeMonoid::<algebra::ops::Mul, ModFieldCfg<I>>::exp(
+        Some(CommutativeMonoid::<algebra::ops::Mul>::exp(
             self,
             c.rem - I::two(),
             c,
@@ -92,7 +96,7 @@ impl<I: Natural> InverseNonZero<algebra::ops::Mul, ModFieldCfg<I>> for ModField<
     }
 }
 
-impl<I: Natural> Field<ModFieldCfg<I>> for ModField<I> {}
+impl<I: Natural> Field for ModField<I> {}
 
 impl<I: Natural> ModField<I> {
     pub fn new(p: I, cfg: &ModFieldCfg<I>) -> Self {
