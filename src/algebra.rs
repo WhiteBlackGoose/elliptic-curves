@@ -1,23 +1,4 @@
-use std::ops::*;
-
-pub trait Natural:
-    Sized
-    + Copy
-    + std::ops::Add<Output = Self>
-    + std::ops::Mul<Output = Self>
-    + Div<Output = Self>
-    + Rem<Output = Self>
-    + Sub<Output = Self>
-    + Eq
-    + Ord
-{
-    fn zero() -> Self;
-    fn one() -> Self;
-    fn two() -> Self {
-        Self::one() + Self::one()
-    }
-    fn max() -> Self;
-}
+use crate::base_traits::Natural;
 
 pub trait CommutativeOp<Op, C>: Sized {
     fn op(a: Self, b: Self, c: &C) -> Self;
@@ -36,14 +17,14 @@ pub trait InverseNonZero<Op, C>: Sized {
 }
 
 pub trait CommutativeMonoid<Op, C>: Copy + CommutativeOp<Op, C> + Identity<Op, C> {
-    fn exp<I: Natural>(self, cfg: &C, n: I) -> Self {
+    fn exp<I: Natural>(self, n: I, cfg: &C) -> Self {
         if n == I::zero() {
             Identity::identity(cfg)
         } else if n == I::one() {
             self
         } else {
             let m = n / I::two();
-            let r = self.exp(cfg, n);
+            let r = self.exp(n, cfg);
             if m % I::two() == I::zero() {
                 CommutativeOp::op(r, r, cfg)
             } else {
@@ -82,5 +63,24 @@ pub trait Field<C>:
             InverseNonZero::<ops::Mul, C>::inv(b, cfg).unwrap(),
             cfg,
         )
+    }
+    fn zero(cfg: &C) -> Self {
+        Identity::<ops::Add, C>::identity(cfg)
+    }
+    fn one(cfg: &C) -> Self {
+        Identity::<ops::Mul, C>::identity(cfg)
+    }
+    fn two(cfg: &C) -> Self {
+        let one = Self::one(cfg);
+        Self::add(one, one, cfg)
+    }
+    fn pow<N: Natural>(self, n: N, cfg: &C) -> Self {
+        CommutativeMonoid::<ops::Mul, C>::exp(self, n, cfg)
+    }
+    fn reciprocal(self, cfg: &C) -> Option<Self> {
+        InverseNonZero::inv(self, cfg)
+    }
+    fn neg(self, cfg: &C) -> Self {
+        Inverse::inv(self, cfg)
     }
 }

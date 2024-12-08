@@ -1,9 +1,16 @@
-use std::ops;
+use std::{
+    fmt::{Debug, Display},
+    ops,
+};
 
 use rand::Rng;
 
-use crate::groups::{
-    self, AbelianGroup, CommutativeOp, Field, Identity, Inverse, InverseNonZero, Natural,
+use crate::{
+    algebra::{
+        self, AbelianGroup, CommutativeMonoid, CommutativeOp, Field, Identity, Inverse,
+        InverseNonZero,
+    },
+    base_traits::{FromRandom, Natural},
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -36,13 +43,13 @@ where
     }
 }
 
-impl<I: Natural> CommutativeOp<groups::ops::Add, ModFieldCfg<I>> for ModField<I> {
+impl<I: Natural> CommutativeOp<algebra::ops::Add, ModFieldCfg<I>> for ModField<I> {
     fn op(a: Self, b: Self, c: &ModFieldCfg<I>) -> Self {
         todo!()
     }
 }
 
-impl<I: Natural> Inverse<groups::ops::Add, ModFieldCfg<I>> for ModField<I> {
+impl<I: Natural> Inverse<algebra::ops::Add, ModFieldCfg<I>> for ModField<I> {
     fn inv(self, cfg: &ModFieldCfg<I>) -> Self {
         Self {
             val: cfg.rem - self.val,
@@ -50,153 +57,87 @@ impl<I: Natural> Inverse<groups::ops::Add, ModFieldCfg<I>> for ModField<I> {
     }
 }
 
-impl<I: Natural> Identity<groups::ops::Add, ModFieldCfg<I>> for ModField<I> {
+impl<I: Natural> Identity<algebra::ops::Add, ModFieldCfg<I>> for ModField<I> {
     fn identity(c: &ModFieldCfg<I>) -> Self {
         Self { val: I::zero() }
     }
 }
 
-impl<I: Natural> AbelianGroup<groups::ops::Add, ModFieldCfg<I>> for ModField<I> {
-    fn zero(_cfg: &ModFieldCfg<I>) -> Self {
-        Self { val: I::zero() }
-    }
-}
-
-impl<I: Natural> CommutativeOp<groups::ops::Mul, ModFieldCfg<I>> for ModField<I> {
+impl<I: Natural> CommutativeOp<algebra::ops::Mul, ModFieldCfg<I>> for ModField<I> {
     fn op(a: Self, b: Self, c: &ModFieldCfg<I>) -> Self {
         todo!()
     }
 }
-
-impl<I: Natural> InverseNonZero<groups::ops::Mul, ModFieldCfg<I>> for ModField<I> {
-    fn inv(self, c: &ModFieldCfg<I>) -> Option<Self> {
-        assert!(gcd(c.rem, self.nat()) == I::one(), "can't mul invert");
-        // Little Fermat's theorem
-        self.pow(c.rem - I::two())
-    }
-}
-
-impl<I: Natural> Identity<groups::ops::Mul, ModFieldCfg<I>> for ModField<I> {
+impl<I: Natural> Identity<algebra::ops::Mul, ModFieldCfg<I>> for ModField<I> {
     fn identity(_c: &ModFieldCfg<I>) -> Self {
         Self { val: I::one() }
     }
 }
 
-impl<I: Natural> Field<ModFieldCfg<I>> for ModField<I> {}
+impl<I: Natural> CommutativeMonoid<algebra::ops::Add, ModFieldCfg<I>> for ModField<I> {}
+impl<I: Natural> CommutativeMonoid<algebra::ops::Mul, ModFieldCfg<I>> for ModField<I> {}
+impl<I: Natural> AbelianGroup<algebra::ops::Add, ModFieldCfg<I>> for ModField<I> {}
 
-impl<F: Natural> ModField<F> {
-    pub fn nat(self) -> F {
-        self.v
-    }
-
-    pub fn invert(self) -> Self {}
-
-    pub fn pow(self, p: S) -> Self {
-        if p == 0 {
-            Self::new(1)
-        } else if p == 1 {
-            self
-        } else {
-            let m = self.pow(p / 2);
-            let r = self.pow(p % 2);
-            m * m * r
-        }
-    }
-
-    pub fn random<R: Rng>(r: &mut R) -> Self {
-        let l = r.next_S();
-        Self::new(l)
-    }
-
-    pub fn random_nonzero<R: Rng>(r: &mut R) -> Self {
-        let res = Self::random(r);
-        if res == Self::zero() {
-            res + Self::one()
-        } else {
-            res
-        }
-    }
-
-    pub fn sqrt(self) -> Option<Self> {
-        if self.pow((P - 1) / 2) != Self::one() {
+impl<I: Natural> InverseNonZero<algebra::ops::Mul, ModFieldCfg<I>> for ModField<I> {
+    fn inv(self, c: &ModFieldCfg<I>) -> Option<Self> {
+        if gcd(c.rem, self.nat()) != I::one() {
             return None;
         }
-        if P % 4 == 3 {
-            Some(self.pow((P + 1) / 4))
+        // Little Fermat's theorem
+        Some(CommutativeMonoid::<algebra::ops::Mul, ModFieldCfg<I>>::exp(
+            self,
+            c.rem - I::two(),
+            c,
+        ))
+    }
+}
+
+impl<I: Natural> Field<ModFieldCfg<I>> for ModField<I> {}
+
+impl<I: Natural> ModField<I> {
+    pub fn new(p: I, cfg: &ModFieldCfg<I>) -> Self {
+        Self { val: p % cfg.rem }
+    }
+    pub fn nat(self) -> I {
+        self.val
+    }
+    pub fn sqrt(self, c: &ModFieldCfg<I>) -> Option<Self> {
+        if self.pow((c.rem - I::one()) / I::two(), c) != Self::one(c) {
+            return None;
+        }
+        let three = I::two() + I::one();
+        let four = I::two() + I::two();
+        if c.rem % four == three {
+            Some(self.pow((c.rem + I::one()) / four, c))
         } else {
             todo!();
         }
     }
 }
+impl<I: Natural + FromRandom> ModField<I> {
+    pub fn random<R: Rng>(r: &mut R, cfg: &ModFieldCfg<I>) -> Self {
+        Self::new(I::random(r), cfg)
+    }
 
-impl<const P: S> std::fmt::Display for ModField<P> {
+    pub fn random_nonzero<R: Rng>(r: &mut R, cfg: &ModFieldCfg<I>) -> Self {
+        loop {
+            let r = Self::random(r, cfg);
+            if r != Self::zero(cfg) {
+                return r;
+            }
+        }
+    }
+}
+
+impl<I: Natural + Display> std::fmt::Display for ModField<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.v.fmt(f)
+        self.val.fmt(f)
     }
 }
 
-impl<const P: S> std::fmt::Debug for ModField<P> {
+impl<I: Natural + Debug> std::fmt::Debug for ModField<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.v.fmt(f)
-    }
-}
-
-impl<const P: S> ModField<P> {
-    pub const fn new(p: S) -> Self {
-        Self { v: p % P }
-    }
-}
-
-impl<const P: S> ops::Add for ModField<P> {
-    type Output = ModField<P>;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        let v1 = self.v as i128;
-        let v2 = rhs.v as i128;
-        Self {
-            v: ((v1 + v2) % (P as i128)) as S,
-        }
-    }
-}
-
-impl<const P: S> ops::Mul for ModField<P> {
-    type Output = ModField<P>;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        let v1 = self.v as i128;
-        let v2 = rhs.v as i128;
-        Self {
-            v: ((v1 * v2) % (P as i128)) as S,
-        }
-    }
-}
-
-impl<const P: S> ops::Sub for ModField<P> {
-    type Output = ModField<P>;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        let v1 = self.v as i128;
-        let v2 = rhs.v as i128;
-        Self {
-            v: ((v1 - v2).rem_euclid(P as i128)) as S,
-        }
-    }
-}
-
-impl<const P: S> ops::Neg for ModField<P> {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        Self { v: P - self.v }
-    }
-}
-
-impl<const P: S> ops::Div for ModField<P> {
-    type Output = ModField<P>;
-
-    #[allow(clippy::suspicious_arithmetic_impl)]
-    fn div(self, rhs: Self) -> Self::Output {
-        self * rhs.invert()
+        self.val.fmt(f)
     }
 }
 
@@ -204,42 +145,56 @@ impl<const P: S> ops::Div for ModField<P> {
 mod tests {
     use rand::{RngCore, SeedableRng};
 
-    use crate::mod_field::{gcd, ModField};
-    type F = ModField<19>;
+    use crate::{
+        algebra::Field,
+        mod_field::{gcd, ModField},
+    };
+
+    use super::ModFieldCfg;
+
+    type F = ModField<u64>;
+
+    fn cfg() -> ModFieldCfg<u64> {
+        ModFieldCfg { rem: 19 }
+    }
+
+    fn f(a: u64) -> F {
+        F::new(a, &cfg())
+    }
 
     #[test]
     fn simple() {
-        assert_eq!(F::new(27), F::new(8));
+        assert_eq!(f(27), f(8));
     }
 
     #[test]
     fn add() {
-        assert_eq!(F::new(7) + F::new(13), F::new(1));
+        assert_eq!(F::add(f(7), f(13), &cfg()), f(1));
     }
 
     #[test]
     fn mul() {
-        assert_eq!(F::new(7) * F::new(13), F::new(15));
+        assert_eq!(F::mul(f(7), f(13), &cfg()), f(15));
     }
 
     #[test]
     fn sub() {
-        assert_eq!(F::new(7) - F::new(13), F::new(13));
+        assert_eq!(F::sub(f(7), f(13), &cfg()), f(13));
     }
 
     #[test]
     fn div() {
-        assert_eq!(F::new(11) / F::new(5), F::new(6));
+        assert_eq!(F::div(f(11), f(5), &cfg()), f(6));
     }
 
     #[test]
     fn inv() {
-        assert_eq!(F::new(11).invert(), F::new(7));
+        assert_eq!(f(11).reciprocal(&cfg()), Some(f(7)));
     }
 
     #[test]
     fn neg() {
-        assert_eq!(-F::new(11), F::new(8));
+        assert_eq!(f(11).neg(&cfg()), f(8));
     }
 
     #[test]
@@ -266,9 +221,16 @@ mod tests {
     fn div_circ() {
         let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
         for _ in 0..100 {
-            let a = F::random(&mut gen);
-            let b = F::random_nonzero(&mut gen);
-            assert_eq!((a / b) * b, a, "a: {}, b: {}, a/b: {}", a, b, a / b);
+            let a = F::random(&mut gen, &cfg());
+            let b = F::random_nonzero(&mut gen, &cfg());
+            assert_eq!(
+                F::mul(F::div(a, b, &cfg()), b, &cfg()),
+                a,
+                "a: {}, b: {}, a/b: {}",
+                a,
+                b,
+                F::div(a, b, &cfg())
+            );
         }
     }
 
@@ -276,8 +238,14 @@ mod tests {
     fn inv_circ() {
         let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
         for _ in 0..100 {
-            let a = F::random_nonzero(&mut gen);
-            assert_eq!(a.invert() * a, F::new(1), "a: {}, a^-1: {}", a, a.invert());
+            let a = F::random_nonzero(&mut gen, &cfg());
+            assert_eq!(
+                F::mul(a.reciprocal(&cfg()).unwrap(), a, &cfg()),
+                F::one(&cfg()),
+                "a: {}, a^-1: {}",
+                a,
+                a.reciprocal(&cfg()).unwrap()
+            );
         }
     }
 
@@ -285,9 +253,15 @@ mod tests {
     fn sub_circ() {
         let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
         for _ in 0..100 {
-            let a = F::random(&mut gen);
-            let b = F::random(&mut gen);
-            assert_eq!(a - b + b, a, "a: {}, b: {}", a, b);
+            let a = F::random(&mut gen, &cfg());
+            let b = F::random(&mut gen, &cfg());
+            assert_eq!(
+                F::add(F::sub(a, b, &cfg()), b, &cfg()),
+                a,
+                "a: {}, b: {}",
+                a,
+                b
+            );
         }
     }
 }

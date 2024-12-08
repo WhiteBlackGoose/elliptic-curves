@@ -6,9 +6,10 @@ use encoding_utils::{
 };
 use rand::Rng;
 
+mod algebra;
+mod base_traits;
 mod ecc;
 mod encoding_utils;
-mod groups;
 mod mod_field;
 
 fn main() {
