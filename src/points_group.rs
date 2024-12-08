@@ -1,4 +1,12 @@
-use crate::algebra::{self, CommutativeOp, Configurable, Field};
+use rand::Rng;
+
+use crate::{
+    algebra::{
+        self, CommutativeMonoid, CommutativeOp, Configurable, DiscreteRoot, Field, Identity,
+        InitialPoint, Inverse,
+    },
+    base_traits::{FromRandom, RW},
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Point<F> {
@@ -7,10 +15,10 @@ pub struct Point<F> {
 }
 
 pub struct PointCfg<CFG, F> {
-    g: Point<F>,
-    a: F,
-    b: F,
-    cf: CFG,
+    pub g: Point<F>,
+    pub a: F,
+    pub b: F,
+    pub cf: CFG,
 }
 
 impl<F: Field> Configurable for Point<F> {
@@ -18,6 +26,10 @@ impl<F: Field> Configurable for Point<F> {
 }
 
 impl<F: Field> Point<F> {
+    pub fn new_unsafe(x: F, y: F) -> Self {
+        Self { x, y }
+    }
+
     pub fn new(x: F, y: F, cp: &<Self as Configurable>::Cfg) -> Self {
         let lhs = y.sqr(&cp.cf);
         let rhs = F::add(
@@ -51,5 +63,92 @@ impl<F: Field> CommutativeOp<algebra::ops::Add> for Point<F> {
             &c.cf,
         );
         Point::new(x3, y3, c)
+    }
+}
+
+impl<F: Field> Inverse<algebra::ops::Add> for Point<F> {
+    fn inv(self, c: &Self::Cfg) -> Self {
+        Self {
+            x: self.x,
+            y: F::neg(self.y, &c.cf),
+        }
+    }
+}
+
+impl<F> Point<F> {
+    pub fn x(self) -> F {
+        self.x
+    }
+
+    pub fn y(self) -> F {
+        self.y
+    }
+}
+
+impl<F: Field + DiscreteRoot<algebra::ops::Mul>> Point<F> {
+    pub fn from_x(x: F, cp: &<Self as Configurable>::Cfg) -> Option<Self> {
+        let y2 = F::add(
+            F::add(x.cube(&cp.cf), F::mul(cp.a, x, &cp.cf), &cp.cf),
+            cp.b,
+            &cp.cf,
+        );
+        if let Some(yres) = y2.sqrt(&cp.cf) {
+            Some(Self::new(x, yres, cp))
+        } else {
+            None
+        }
+    }
+}
+
+impl<F: Field + FromRandom + DiscreteRoot<algebra::ops::Mul>> Point<F> {
+    pub fn random<R: Rng>(r: &mut R, cfg: &<Self as Configurable>::Cfg) -> Self {
+        loop {
+            let x = F::random(r);
+            if let Some(p) = Self::from_x(x, cfg) {
+                return p;
+            }
+        }
+    }
+}
+
+impl<F: RW> RW for Point<F> {
+    const LEN: usize = 2 * F::LEN;
+
+    fn to_bytes(self) -> [u8; Self::LEN] {
+        let mut res = [0u8; Self::LEN];
+        res[..F::LEN].copy_from_slice(&self.x.to_bytes());
+        res[F::LEN..].copy_from_slice(&self.y.to_bytes());
+        res
+    }
+
+    fn from_bytes(bytes: [u8; Self::LEN]) -> Self {
+        let x = u64::from_le_bytes(bytes[..8].try_into().unwrap());
+        let y = u64::from_le_bytes(bytes[8..].try_into().unwrap());
+        Self::new(Zp::new(x), Zp::new(y))
+    }
+}
+
+impl<C, F: Copy> InitialPoint<Point<F>> for PointCfg<C, F> {
+    fn g(&self) -> Point<F> {
+        self.g
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::SeedableRng;
+
+    #[test]
+    fn points_add_itself() {
+        let a = Point::new(Zp::new(232), Zp::new(3537));
+        assert_eq!(a + a, Point::new(Zp::new(74095187791), Zp::new(9434911276)));
+    }
+
+    // http://christelbach.com/ECCalculator.aspx
+    #[test]
+    fn points_add_two() {
+        let a = Point::new(Zp::new(82226830584), Zp::new(16727101863));
+        let b = Point::new(Zp::new(17120951320), Zp::new(15809323217));
+        assert_eq!(a + b, Point::new(Zp::new(3851261364), Zp::new(66206903692)));
     }
 }

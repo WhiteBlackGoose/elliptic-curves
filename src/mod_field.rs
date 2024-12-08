@@ -7,15 +7,15 @@ use rand::Rng;
 
 use crate::{
     algebra::{
-        self, AbelianGroup, CommutativeMonoid, CommutativeOp, Configurable, Field, Identity,
-        Inverse, InverseNonZero,
+        self, AbelianGroup, CommutativeMonoid, CommutativeOp, Configurable, DiscreteRoot, Field,
+        Identity, Inverse, InverseNonZero,
     },
     base_traits::{FromRandom, Natural},
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct ModFieldCfg<I> {
-    rem: I,
+    pub rem: I,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -98,14 +98,8 @@ impl<I: Natural> InverseNonZero<algebra::ops::Mul> for ModField<I> {
 
 impl<I: Natural> Field for ModField<I> {}
 
-impl<I: Natural> ModField<I> {
-    pub fn new(p: I, cfg: &ModFieldCfg<I>) -> Self {
-        Self { val: p % cfg.rem }
-    }
-    pub fn nat(self) -> I {
-        self.val
-    }
-    pub fn sqrt(self, c: &ModFieldCfg<I>) -> Option<Self> {
+impl<I: Natural> DiscreteRoot<algebra::ops::Mul> for ModField<I> {
+    fn sqrt(self, c: &ModFieldCfg<I>) -> Option<Self> {
         if self.pow((c.rem - I::one()) / I::two(), c) != Self::one(c) {
             return None;
         }
@@ -116,6 +110,15 @@ impl<I: Natural> ModField<I> {
         } else {
             todo!();
         }
+    }
+}
+
+impl<I: Natural> ModField<I> {
+    pub fn new(p: I, cfg: &ModFieldCfg<I>) -> Self {
+        Self { val: p % cfg.rem }
+    }
+    pub fn nat(self) -> I {
+        self.val
     }
 }
 impl<I: Natural + FromRandom> ModField<I> {

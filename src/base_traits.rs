@@ -44,3 +44,10 @@ impl FromRandom for u64 {
         rng.next_u64()
     }
 }
+
+pub trait RW {
+    const LEN: usize;
+
+    fn to_bytes(self) -> [u8; Self::LEN];
+    fn from_bytes(bytes: [u8; Self::LEN]) -> Self;
+}

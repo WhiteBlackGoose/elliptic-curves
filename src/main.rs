@@ -1,9 +1,12 @@
 #![feature(iter_array_chunks)]
+#![feature(generic_const_exprs)]
 use clap::{Arg, Command};
-use ecc::{gen_keys, Point, PrivateKey, PublicKey};
+use ecc::{gen_keys, PrivateKey, PublicKey};
 use encoding_utils::{
     decode_message_and_decrypt, encrypt_message_and_encode, points_to_text, text_to_points,
 };
+use mod_field::{ModField, ModFieldCfg};
+use points_group::{Point, PointCfg};
 use rand::Rng;
 
 mod algebra;
@@ -14,6 +17,20 @@ mod mod_field;
 mod points_group;
 
 fn main() {
+    let cfg_field = ModFieldCfg {
+        rem: 0x0014_4C3B_27FFu64,
+        // 0x1FFF_FFFF_FFFF_FFFF
+    };
+    let cfg_group = PointCfg {
+        g: Point::new_unsafe(
+            ModField::new(2500, &cfg_field),
+            ModField::new(125001, &cfg_field),
+        ),
+        a: ModField::new(100, &cfg_field),
+        b: ModField::new(1, &cfg_field),
+        cf: cfg_field,
+    };
+
     let matches = Command::new("xxx")
         .subcommand(Command::new("genkey").about("Generate a pair of keys"))
         .subcommand(

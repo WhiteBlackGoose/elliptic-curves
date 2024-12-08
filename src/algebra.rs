@@ -1,29 +1,15 @@
 use crate::base_traits::Natural;
 
-pub trait Configurable: Sized {
+pub trait Configurable: Sized + Copy {
     type Cfg;
 }
 
 pub trait CommutativeOp<Op>: Configurable {
     fn op(a: Self, b: Self, c: &Self::Cfg) -> Self;
-}
 
-pub trait Identity<Op>: Configurable {
-    fn identity(c: &Self::Cfg) -> Self;
-}
-
-pub trait Inverse<Op>: Configurable {
-    fn inv(self, c: &Self::Cfg) -> Self;
-}
-
-pub trait InverseNonZero<Op>: Configurable {
-    fn inv(self, c: &Self::Cfg) -> Option<Self>;
-}
-
-pub trait CommutativeMonoid<Op>: Copy + CommutativeOp<Op> + Identity<Op> {
     fn exp<I: Natural>(self, n: I, cfg: &Self::Cfg) -> Self {
         if n == I::zero() {
-            Identity::identity(cfg)
+            panic!("Identity element for power 0 is not defined, use Monoid::exp");
         } else if n == I::one() {
             self
         } else {
@@ -38,7 +24,37 @@ pub trait CommutativeMonoid<Op>: Copy + CommutativeOp<Op> + Identity<Op> {
     }
 }
 
-pub trait AbelianGroup<Op>: Sized + Copy + CommutativeMonoid<Op> + Inverse<Op> {}
+pub trait Identity<Op>: Configurable {
+    fn identity(c: &Self::Cfg) -> Self;
+}
+
+pub trait Inverse<Op>: Configurable {
+    fn inv(self, c: &Self::Cfg) -> Self;
+}
+
+pub trait InverseNonZero<Op>: Configurable {
+    fn inv(self, c: &Self::Cfg) -> Option<Self>;
+}
+
+pub trait CommutativeMonoid<Op>: CommutativeOp<Op> + Identity<Op> {
+    fn exp<I: Natural>(self, n: I, cfg: &Self::Cfg) -> Self {
+        if n == I::zero() {
+            Identity::identity(cfg)
+        } else {
+            CommutativeOp::exp(self, n, cfg)
+        }
+    }
+}
+
+pub trait AbelianGroup<Op>: CommutativeMonoid<Op> + Inverse<Op> {}
+
+pub trait DiscreteRoot<Op>: CommutativeOp<Op> {
+    fn sqrt(self, cfg: &Self::Cfg) -> Option<Self>;
+}
+
+pub trait InitialPoint<P> {
+    fn g(&self) -> P;
+}
 
 pub mod ops {
     pub struct Add;
