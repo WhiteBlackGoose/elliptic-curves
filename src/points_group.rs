@@ -1,3 +1,5 @@
+use std::io::{Read, Write};
+
 use rand::Rng;
 
 use crate::{
@@ -111,20 +113,15 @@ impl<F: Field + FromRandom + DiscreteRoot<algebra::ops::Mul>> Point<F> {
     }
 }
 
-impl<F: RW> RW for Point<F> {
+impl<F: RW + Field> RW for Point<F> {
     const LEN: usize = 2 * F::LEN;
 
-    fn to_bytes(self) -> [u8; Self::LEN] {
-        let mut res = [0u8; Self::LEN];
-        res[..F::LEN].copy_from_slice(&self.x.to_bytes());
-        res[F::LEN..].copy_from_slice(&self.y.to_bytes());
-        res
+    fn to_bytes(self, w: &mut impl Write) -> usize {
+        self.x.to_bytes(w) + self.y.to_bytes(w)
     }
 
-    fn from_bytes(bytes: [u8; Self::LEN]) -> Self {
-        let x = u64::from_le_bytes(bytes[..8].try_into().unwrap());
-        let y = u64::from_le_bytes(bytes[8..].try_into().unwrap());
-        Self::new(Zp::new(x), Zp::new(y))
+    fn from_bytes(r: &mut impl Read) -> Self {
+        Self::new_unsafe(F::from_bytes(r), F::from_bytes(r))
     }
 }
 
@@ -136,8 +133,6 @@ impl<C, F: Copy> InitialPoint<Point<F>> for PointCfg<C, F> {
 
 #[cfg(test)]
 mod tests {
-    use rand::SeedableRng;
-
     #[test]
     fn points_add_itself() {
         let a = Point::new(Zp::new(232), Zp::new(3537));

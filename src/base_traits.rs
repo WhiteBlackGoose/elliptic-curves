@@ -1,5 +1,9 @@
-use std::ops::*;
+use std::{
+    io::{Cursor, Read, Write},
+    ops::*,
+};
 
+use base64::prelude::*;
 use rand::Rng;
 
 pub trait Natural:
@@ -45,9 +49,21 @@ impl FromRandom for u64 {
     }
 }
 
-pub trait RW {
+pub trait RW: Sized {
     const LEN: usize;
 
-    fn to_bytes(self) -> [u8; Self::LEN];
-    fn from_bytes(bytes: [u8; Self::LEN]) -> Self;
+    fn to_bytes(self, w: &mut impl Write) -> usize;
+    fn from_bytes(r: &mut impl Read) -> Self;
+
+    fn to_base64(self) -> String {
+        let mut buf = vec![];
+        let len = self.to_bytes(&mut buf);
+        BASE64_STANDARD.encode(&buf[..len])
+    }
+
+    fn from_base64(base64: &str) -> Self {
+        let decoded = BASE64_STANDARD.decode(base64).unwrap();
+        let mut cur = Cursor::new(&decoded);
+        Self::from_bytes(&mut cur)
+    }
 }

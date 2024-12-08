@@ -4,7 +4,7 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use rand::Rng;
 
 use crate::{
-    algebra::{self, CommutativeOp, InitialPoint},
+    algebra::{self, CommutativeOp, InitialPoint, Inverse},
     base_traits::{FromRandom, Natural, RW},
     mod_field::ModField,
     points_group::{Point, PointCfg},
@@ -42,30 +42,29 @@ where
     }
 
     pub fn base64(self) -> String {
-        BASE64_STANDARD.encode(&self.0.to_bytes())
+        self.0.to_base64()
     }
 
     pub fn from_base64(base64: &str) -> Self {
-        let bytes = BASE64_STANDARD.decode(base64).unwrap();
-        let x = Zp::new(u64::from_le_bytes(bytes[..8].try_into().unwrap()));
-        let y = Zp::new(u64::from_le_bytes(bytes[8..].try_into().unwrap()));
-        Self(Point::new(x, y))
+        Self(P::from_base64(base64))
     }
 }
 
-impl PrivateKey {
-    pub fn decrypt(self, (c1, c2): (Point, Point)) -> Point {
-        c2 - c1 * self.0
+impl<I: Natural + RW> PrivateKey<I> {
+    pub fn decrypt<P: CommutativeOp<algebra::ops::Add> + Inverse<algebra::ops::Add>>(
+        self,
+        (c1, c2): (P, P),
+        cfg: &P::Cfg,
+    ) -> P {
+        P::op(c2, P::inv(P::exp(c1, self.0, cfg), cfg), cfg)
     }
 
     pub fn base64(self) -> String {
-        BASE64_STANDARD.encode(self.0.to_le_bytes())
+        self.0.to_base64()
     }
 
     pub fn from_base64(base64: &str) -> Self {
-        Self(u128::from_le_bytes(
-            BASE64_STANDARD.decode(base64).unwrap().try_into().unwrap(),
-        ))
+        Self(I::from_base64(base64))
     }
 }
 
