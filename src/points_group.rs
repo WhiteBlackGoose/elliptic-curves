@@ -3,10 +3,7 @@ use std::io::{Read, Write};
 use rand::Rng;
 
 use crate::{
-    algebra::{
-        self, CommutativeMonoid, CommutativeOp, Configurable, DiscreteRoot, Field, Identity,
-        InitialPoint, Inverse,
-    },
+    algebra::{self, CommutativeOp, Configurable, DiscreteRoot, Field, InitialPoint, Inverse},
     base_traits::{FromRandom, RW},
 };
 

@@ -1,7 +1,7 @@
-use std::io::{BufRead, BufWriter, Cursor};
+use std::io::Cursor;
 
 use crate::{
-    algebra::{self, CommutativeOp, DiscreteRoot, Field, InitialPoint},
+    algebra::{self, DiscreteRoot, Field},
     base_traits::{Capacitor, FromRandom, Natural, RW},
     ecc::{PrivateKey, PublicKey},
     points_group::{Point, PointCfg},
@@ -152,7 +152,7 @@ mod tests {
             rem: 0x0014_4C3B_27FFu64,
             // 0x1FFF_FFFF_FFFF_FFFF
         };
-        let cfg_group = PointCfg {
+        PointCfg {
             g: Point::new_unsafe(
                 ModField::new(2500, &cfg_field),
                 ModField::new(125001, &cfg_field),
@@ -160,8 +160,7 @@ mod tests {
             a: ModField::new(100, &cfg_field),
             b: ModField::new(1, &cfg_field),
             cf: cfg_field,
-        };
-        cfg_group
+        }
     }
 
     const TEXTS: [&str; 4] = [

@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Debug, Display},
-    ops,
-};
+use std::fmt::{Debug, Display};
 
 use rand::Rng;
 
@@ -74,7 +71,7 @@ impl<I: Natural> Inverse<algebra::ops::Add> for ModField<I> {
 }
 
 impl<I: Natural> Identity<algebra::ops::Add> for ModField<I> {
-    fn identity(c: &ModFieldCfg<I>) -> Self {
+    fn identity(_: &ModFieldCfg<I>) -> Self {
         Self { val: I::zero() }
     }
 }
@@ -198,7 +195,7 @@ impl<I: Natural> Capacitor for ModField<I> {
 
 #[cfg(test)]
 mod tests {
-    use rand::{RngCore, SeedableRng};
+    use rand::SeedableRng;
 
     use crate::{
         algebra::Field,

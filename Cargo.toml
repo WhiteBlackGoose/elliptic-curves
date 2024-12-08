@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 base64 = "0.22.1"
 clap = { version = "4.5.23", features = ["derive"] }
+primitive-types = "0.13.1"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 static_assertions = "1.1.0"

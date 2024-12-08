@@ -1,10 +1,8 @@
 use rand::Rng;
 
 use crate::{
-    algebra::{self, CommutativeOp, Field, InitialPoint, Inverse},
+    algebra::{self, CommutativeOp, InitialPoint, Inverse},
     base_traits::{FromRandom, Natural, RW},
-    mod_field::{ModField, ModFieldCfg},
-    points_group::{Point, PointCfg},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

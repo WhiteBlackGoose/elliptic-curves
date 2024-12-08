@@ -4,6 +4,7 @@ use std::{
 };
 
 use base64::prelude::*;
+use primitive_types::U256;
 use rand::Rng;
 
 use crate::algebra::Configurable;
@@ -102,6 +103,42 @@ macro_rules! impl_stuff {
 impl_stuff!(u64);
 impl_stuff!(u128);
 impl_stuff!(u8);
+
+impl Natural for U256 {
+    fn zero() -> Self {
+        U256::zero()
+    }
+
+    fn one() -> Self {
+        U256::one()
+    }
+
+    fn max() -> Self {
+        U256::MAX
+    }
+}
+
+impl RW for U256 {
+    const LEN: usize = size_of::<U256>();
+
+    fn to_bytes(self, w: &mut impl Write) -> usize {
+        w.write(&self.to_little_endian()).unwrap()
+    }
+
+    fn from_bytes(r: &mut impl Read) -> Self {
+        let mut buf = vec![0u8; size_of::<Self>()];
+        r.read_exact(&mut buf).unwrap();
+        Self::from_little_endian(&buf)
+    }
+}
+
+impl FromRandom<()> for U256 {
+    fn random(rng: &mut impl Rng, cfg: &()) -> Self {
+        let l1: U256 = u128::random(rng, cfg).into();
+        let l2: U256 = u128::random(rng, cfg).into();
+        (l1 << 128) + l2
+    }
+}
 
 #[cfg(test)]
 mod tests {

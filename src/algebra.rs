@@ -61,6 +61,7 @@ pub mod ops {
     pub struct Mul;
 }
 
+#[allow(dead_code)]
 pub trait Field:
     Sized + AbelianGroup<ops::Add> + CommutativeMonoid<ops::Mul> + InverseNonZero<ops::Mul> + Eq
 {
@@ -112,10 +113,7 @@ pub trait Field:
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        algebra::{CommutativeMonoid, Identity},
-        mod_field::ModFieldCfg,
-    };
+    use crate::algebra::{CommutativeMonoid, Identity};
 
     use super::{ops, CommutativeOp, Configurable};
 
