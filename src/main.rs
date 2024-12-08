@@ -141,7 +141,6 @@ mod tests {
         };
 
         let text = "Hello, world!! :)";
-        println!("{:?}", text.bytes());
 
         let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
         for _ in 0..300 {

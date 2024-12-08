@@ -6,6 +6,8 @@ use std::{
 use base64::prelude::*;
 use rand::Rng;
 
+use crate::algebra::Configurable;
+
 pub trait Natural:
     Sized
     + Copy
@@ -31,7 +33,7 @@ pub trait FromRandom<C> {
 
 impl<T> FromRandom<T> for u64 {
     fn random(rng: &mut impl Rng, _: &T) -> Self {
-        rng.next_u64()
+        rng.next_u64().wrapping_mul(0x1983018027498101)
     }
 }
 
@@ -58,6 +60,11 @@ pub trait RW: Sized {
         let mut cur = Cursor::new(&decoded);
         Self::from_bytes(&mut cur)
     }
+}
+
+pub trait Capacitor: Configurable {
+    /// how many bytes it can efficiently store
+    fn capacity(cfg: &Self::Cfg) -> usize;
 }
 
 macro_rules! impl_stuff {

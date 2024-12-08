@@ -36,7 +36,9 @@ where
         cfg: &P::Cfg,
     ) -> (P, P) {
         let t = I::random(rng, &());
+        // C1 = t * G
         let c1 = P::exp(InitialPoint::g(cfg), t, cfg);
+        // C2 = t * Pub + msg
         let c2 = P::op(P::exp(self.0, t, cfg), msg, cfg);
         (c1, c2)
     }
@@ -56,6 +58,10 @@ impl<I: Natural + RW> PrivateKey<I> {
         (c1, c2): (P, P),
         cfg: &P::Cfg,
     ) -> P {
+        // C2 + -(priv * C1)
+        // = t * Pub + msg - priv * t * G
+        // = t * priv * G + msg - priv * t * G
+        // = msg
         P::op(c2, P::inv(P::exp(c1, self.0, cfg), cfg), cfg)
     }
 
@@ -96,7 +102,12 @@ mod tests {
         let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
         for _ in 0..100 {
             let (pr, pb) = gen_keys::<_, u128, _>(&mut gen, &cfg_group);
-            let msg = Point::random(&mut gen, &cfg_group);
+            // let msg = Point::random(&mut gen, &cfg_group);
+            let msg = Point::new(
+                ModField::new(369344026516415816, &cfg_group.cf),
+                ModField::new(20868581830, &cfg_group.cf),
+                &cfg_group,
+            );
             let encrypted = pb.encrypt::<u128>(msg, &mut gen, &cfg_group);
             let decrypted = pr.decrypt(encrypted, &cfg_group);
             assert_eq!(msg, decrypted);

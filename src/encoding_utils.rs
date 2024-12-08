@@ -2,7 +2,7 @@ use std::io::{BufRead, BufWriter, Cursor};
 
 use crate::{
     algebra::{self, CommutativeOp, DiscreteRoot, Field, InitialPoint},
-    base_traits::{FromRandom, Natural, RW},
+    base_traits::{Capacitor, FromRandom, Natural, RW},
     ecc::{PrivateKey, PublicKey},
     points_group::{Point, PointCfg},
 };
@@ -12,6 +12,7 @@ use rand::Rng;
 fn bytes_to_point<F: Field + RW + DiscreteRoot<algebra::ops::Mul>, I: Natural + Sized>(
     bytes: &[u8],
     cfg: &PointCfg<F>,
+    cap: usize,
 ) -> Point<F> {
     assert!(bytes.len() < F::LEN);
     let mut quintuple = vec![0u8; F::LEN];
@@ -22,11 +23,11 @@ fn bytes_to_point<F: Field + RW + DiscreteRoot<algebra::ops::Mul>, I: Natural + 
         if let Some(point) = Point::from_x(x, cfg) {
             return point;
         }
-        quintuple[F::LEN - 1] += 1;
+        quintuple[cap] += 1;
     }
 }
 
-pub fn text_to_points<F: Field + RW + DiscreteRoot<algebra::ops::Mul>, I: Natural>(
+pub fn text_to_points<F: Field + RW + DiscreteRoot<algebra::ops::Mul> + Capacitor, I: Natural>(
     text: &str,
     cfg: &PointCfg<F>,
 ) -> Vec<Point<F>>
@@ -34,25 +35,30 @@ where
     [(); F::LEN - 1]:,
 {
     let bytes = text.as_bytes();
-    // -1 so we reserve one byte for padding
-    let mut iter = bytes.iter().copied().array_chunks::<{ F::LEN - 1 }>();
+
+    let eff_length_incl_padding = F::capacity(&cfg.cf).min(F::LEN - 1) - 1;
+    assert!(eff_length_incl_padding > 1);
+    let iter_count = bytes.len() / eff_length_incl_padding;
     let mut res = vec![];
-    for chunk in iter.by_ref() {
-        res.push(bytes_to_point::<F, I>(&chunk, cfg));
+    for i in 0..iter_count {
+        let chunk = &bytes[i * eff_length_incl_padding..(i + 1) * eff_length_incl_padding];
+        res.push(bytes_to_point::<F, I>(chunk, cfg, eff_length_incl_padding));
     }
-    if let Some(leftover) = iter.into_remainder() {
-        res.push(bytes_to_point::<F, I>(&leftover.collect::<Vec<_>>(), cfg));
+    if bytes.len() % eff_length_incl_padding != 0 {
+        let chunk = &bytes[bytes.len() / eff_length_incl_padding * eff_length_incl_padding..];
+        res.push(bytes_to_point::<F, I>(chunk, cfg, eff_length_incl_padding));
     }
+
     res
 }
 
-pub fn points_to_text<F: RW + Field>(points: impl Iterator<Item = Point<F>>) -> String {
+pub fn points_to_text<F: RW + Field>(points: impl Iterator<Item = Point<F>>, cap: usize) -> String {
     let mut bytes = vec![];
     let mut buf = vec![];
     for point in points {
         buf.clear();
         let b = point.x().to_bytes(&mut buf);
-        for v in 0..b.min(F::LEN - 1) {
+        for v in 0..b.min(cap) {
             if buf[v] == 0x00 {
                 break;
             }
@@ -85,7 +91,7 @@ where
 }
 
 pub fn encrypt_message_and_encode<
-    F: Field + RW + DiscreteRoot<algebra::ops::Mul>,
+    F: Field + RW + DiscreteRoot<algebra::ops::Mul> + Capacitor,
     I: FromRandom<()> + Natural,
 >(
     key: PublicKey<Point<F>>,
@@ -97,14 +103,17 @@ where
     [(); F::LEN - 1]:,
 {
     let points = text_to_points::<F, I>(msg, cfg);
-    let encrypted = points.iter().flat_map(|p| {
-        let (c1, c2) = key.encrypt::<I>(*p, rng, cfg);
-        [c1, c2]
-    });
-    points_to_base64(encrypted)
+    let encrypted = points
+        .iter()
+        .flat_map(|p| {
+            let (c1, c2) = key.encrypt::<I>(*p, rng, cfg);
+            [c1, c2]
+        })
+        .collect::<Vec<_>>();
+    points_to_base64(encrypted.into_iter())
 }
 
-pub fn decode_message_and_decrypt<I: RW + Natural, F: RW + Field>(
+pub fn decode_message_and_decrypt<I: RW + Natural, F: RW + Field + Capacitor>(
     key: PrivateKey<I>,
     msg_base64: &str,
     cfg: &PointCfg<F>,
@@ -118,21 +127,27 @@ where
     let decrypted = points
         .iter()
         .array_chunks::<2>()
-        .map(|[c1, c2]| key.decrypt((*c1, *c2), cfg));
-    points_to_text(decrypted)
+        .map(|[c1, c2]| key.decrypt((*c1, *c2), cfg))
+        .collect::<Vec<_>>();
+    points_to_text(decrypted.into_iter(), F::capacity(&cfg.cf) - 1)
 }
 
 #[cfg(test)]
 mod tests {
 
+    use rand::SeedableRng;
+
     use crate::{
+        base_traits::Capacitor,
+        ecc::gen_keys,
         mod_field::{ModField, ModFieldCfg},
         points_group::{Point, PointCfg},
         points_to_text, text_to_points,
     };
 
-    #[test]
-    fn text2points2text() {
+    use super::{decode_message_and_decrypt, encrypt_message_and_encode};
+
+    fn config() -> PointCfg<ModField<u64>> {
         let cfg_field = ModFieldCfg {
             rem: 0x0014_4C3B_27FFu64,
             // 0x1FFF_FFFF_FFFF_FFFF
@@ -146,16 +161,40 @@ mod tests {
             b: ModField::new(1, &cfg_field),
             cf: cfg_field,
         };
-        let texts = [
-            "Hello, world",
-            "Aaa",
-            "A very long sentence actually, yeah",
-            "Hello, world!! :)",
-        ];
-        for text in texts {
+        cfg_group
+    }
+
+    const TEXTS: [&str; 4] = [
+        "Hello, world",
+        "Aaa",
+        "A very long sentence actually, yeah",
+        "Hello, world!! :)",
+    ];
+
+    #[test]
+    fn text2points2text() {
+        let cfg_group = config();
+        for text in TEXTS {
             let points = text_to_points::<_, u64>(text, &cfg_group);
-            let text2 = points_to_text(points.iter().copied());
+            let text2 = points_to_text(
+                points.iter().copied(),
+                ModField::<u64>::capacity(&cfg_group.cf) - 1,
+            );
             assert_eq!(text, text2);
+        }
+    }
+
+    #[test]
+    fn encrypt_encode_decode_decrypt() {
+        let cfg_group = config();
+        let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
+        let (pr, pb) = gen_keys::<_, u128, _>(&mut gen, &cfg_group);
+        for text in TEXTS {
+            for _ in 0..10 {
+                let secret = encrypt_message_and_encode::<_, u64>(pb, text, &mut gen, &cfg_group);
+                let decoded = decode_message_and_decrypt(pr, &secret, &cfg_group);
+                assert_eq!(text, decoded);
+            }
         }
     }
 }

@@ -10,7 +10,7 @@ use crate::{
         self, AbelianGroup, CommutativeMonoid, CommutativeOp, Configurable, DiscreteRoot, Field,
         Identity, Inverse, InverseNonZero,
     },
-    base_traits::{FromRandom, Natural, RW},
+    base_traits::{Capacitor, FromRandom, Natural, RW},
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -175,6 +175,25 @@ impl<I: Natural + RW> RW for ModField<I> {
     }
 
     const LEN: usize = I::LEN;
+}
+
+impl<I: Natural> Capacitor for ModField<I> {
+    fn capacity(cfg: &Self::Cfg) -> usize {
+        let mut rem = cfg.rem;
+        let mut v256 = I::one();
+        for _ in 0..8 {
+            v256 = v256 * I::two();
+        }
+        let mut c = 0;
+        loop {
+            rem = rem / v256;
+            if rem != I::zero() {
+                c += 1;
+            } else {
+                return c;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
