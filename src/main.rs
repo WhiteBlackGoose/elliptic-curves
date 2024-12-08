@@ -123,19 +123,15 @@ impl PrivateKey {
 }
 
 fn bytes_to_zp(input: &[u8]) -> Zp {
-    let mut bytes = [0xFFu8; 8];
-    for i in 0..bytes.len() {
-        bytes[i] = input[i];
-    }
+    let mut bytes = [0x00u8; 8];
+    bytes[0..input.len()].copy_from_slice(input);
     Zp::new(u64::from_le_bytes(bytes))
 }
 
 fn bytes_to_point(bytes: &[u8]) -> Point {
     assert!(bytes.len() <= 4);
     let mut quintuple = [0u8; 5];
-    for i in 0..bytes.len() {
-        quintuple[i] = bytes[i];
-    }
+    quintuple[0..bytes.len()].copy_from_slice(bytes);
     loop {
         let x = bytes_to_zp(&quintuple);
         if let Some(point) = Point::from_x(x) {
@@ -158,27 +154,42 @@ fn text_to_points(text: &str) -> Vec<Point> {
     res
 }
 
-fn point_to_bytes(point: Point) -> [u8; 5] {
+fn point_to_bytes(point: Point) -> [u8; 8] {
     let x = point.x.nat();
-    l 
+    x.to_le_bytes()
 }
 
 fn points_to_text(points: &[Point]) -> String {
     let mut bytes = vec![];
     for point in points {
-        let 
+        let b = point_to_bytes(*point);
+        for v in b.iter().take(4) {
+            if *v == 0x00 {
+                break;
+            }
+            bytes.push(*v);
+        }
     }
+    String::from_utf8(bytes).unwrap()
 }
 
 fn main() {
     let mut rng = rand::thread_rng();
     let (pr, pb) = gen_keys(&mut rng);
-    let msg = Point::random(&mut rng);
+    let msg = "Hello, world!";
     println!("pubkey: {:?}", pb);
     println!("private: {:?}", pr);
     println!("MSG: {:?}", msg);
-    println!("Encrypted: {:?}", pb.encrypt(msg));
-    println!("Decrypted: {:?}", pr.decrypt(pb.encrypt(msg)));
+    let points = text_to_points(msg);
+    println!("MSG p: {:?}", points);
+
+    let encrypted = points.iter().map(|p| pb.encrypt(*p)).collect::<Vec<_>>();
+    println!("Encrypted: {:?}", encrypted);
+
+    let decryped = encrypted.iter().map(|p| pr.decrypt(*p)).collect::<Vec<_>>();
+    println!("Decrypted: {:?}", decryped);
+
+    println!("MSG: {:?}", points_to_text(&decryped));
     // println!("{:?}", Zp::new(19381031) / Zp::new(312983120));
     // println!("Hello, world! {:?}", gen_keys());
 }
@@ -187,7 +198,7 @@ fn main() {
 mod tests {
     use rand::SeedableRng;
 
-    use crate::{curve, gen_keys, Point, Zp, G};
+    use crate::{curve, gen_keys, points_to_text, text_to_points, Point, Zp, G};
 
     #[test]
     fn g_belongs() {
@@ -218,5 +229,13 @@ mod tests {
         let a = Point::new(Zp::new(82226830584), Zp::new(16727101863));
         let b = Point::new(Zp::new(17120951320), Zp::new(15809323217));
         assert_eq!(a + b, Point::new(Zp::new(3851261364), Zp::new(66206903692)));
+    }
+
+    #[test]
+    fn text2points2text() {
+        let text = "Hello, world";
+        let points = text_to_points(text);
+        let text2 = points_to_text(&points);
+        assert_eq!(text, text2);
     }
 }
