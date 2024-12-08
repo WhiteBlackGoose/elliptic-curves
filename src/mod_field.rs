@@ -49,7 +49,19 @@ where
 
 impl<I: Natural> CommutativeOp<algebra::ops::Add> for ModField<I> {
     fn op(a: Self, b: Self, c: &ModFieldCfg<I>) -> Self {
-        todo!()
+        let max = <I as Natural>::max();
+
+        // a + b > MAX
+        // a > MAX - b
+        //
+        // r1 = MAX % r
+        if a.val > max - b.val {
+            let r1 = max % c.rem;
+            let r2 = (b.val - (max - a.val)) % c.rem;
+            Self::new(r1 + r2, c)
+        } else {
+            Self::new(a.val + b.val, c)
+        }
     }
 }
 
@@ -69,7 +81,7 @@ impl<I: Natural> Identity<algebra::ops::Add> for ModField<I> {
 
 impl<I: Natural> CommutativeOp<algebra::ops::Mul> for ModField<I> {
     fn op(a: Self, b: Self, c: &ModFieldCfg<I>) -> Self {
-        todo!()
+        CommutativeOp::<algebra::ops::Add>::exp(a, b.val, c)
     }
 }
 impl<I: Natural> Identity<algebra::ops::Mul> for ModField<I> {
@@ -195,6 +207,57 @@ mod tests {
     #[test]
     fn add() {
         assert_eq!(F::add(f(7), f(13), &cfg()), f(1));
+    }
+
+    type H = ModField<u8>;
+    #[test]
+    fn add_overflow1() {
+        let cfg = ModFieldCfg { rem: 79 };
+        assert_eq!(
+            H::add(H::new(11, &cfg), H::new(150, &cfg), &cfg),
+            H::new(3, &cfg)
+        );
+    }
+    #[test]
+    fn add_overflow2() {
+        let cfg = ModFieldCfg { rem: 79 };
+        assert_eq!(
+            H::add(H::new(110, &cfg), H::new(150, &cfg), &cfg),
+            H::new(23, &cfg)
+        );
+    }
+    #[test]
+    fn add_overflow3() {
+        let cfg = ModFieldCfg { rem: 251 };
+        assert_eq!(
+            H::add(H::new(110, &cfg), H::new(150, &cfg), &cfg),
+            H::new(9, &cfg)
+        );
+    }
+
+    #[test]
+    fn add_overflow4() {
+        let cfg = ModFieldCfg { rem: 251 };
+        assert_eq!(
+            H::add(H::new(4, &cfg), H::new(255, &cfg), &cfg),
+            H::new(8, &cfg)
+        );
+    }
+    #[test]
+    fn add_overflow5() {
+        let cfg = ModFieldCfg { rem: 251 };
+        assert_eq!(
+            H::add(H::new(255, &cfg), H::new(4, &cfg), &cfg),
+            H::new(8, &cfg)
+        );
+    }
+    #[test]
+    fn add_overflow6() {
+        let cfg = ModFieldCfg { rem: 251 };
+        assert_eq!(
+            H::add(H::new(249, &cfg), H::new(250, &cfg), &cfg),
+            H::new(248, &cfg)
+        );
     }
 
     #[test]

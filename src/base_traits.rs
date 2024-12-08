@@ -95,3 +95,4 @@ macro_rules! impl_stuff {
 
 impl_stuff!(u64);
 impl_stuff!(u128);
+impl_stuff!(u8);
