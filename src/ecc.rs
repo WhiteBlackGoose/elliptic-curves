@@ -7,10 +7,10 @@ use crate::{
     points_group::{Point, PointCfg},
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PrivateKey<I>(I);
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PublicKey<P>(P);
 
 pub fn gen_keys<R: Rng, I: FromRandom<()> + Natural, P: CommutativeOp<algebra::ops::Add>>(
@@ -79,13 +79,13 @@ mod tests {
     use rand::SeedableRng;
 
     use crate::{
-        ecc::gen_keys,
+        ecc::{gen_keys, PublicKey},
         mod_field::{ModField, ModFieldCfg},
         points_group::{Point, PointCfg},
     };
 
-    #[test]
-    fn back_forth() {
+    use super::PrivateKey;
+    fn cfg() -> PointCfg<ModField<u64>> {
         let cfg_field = ModFieldCfg {
             rem: 0x0014_4C3B_27FFu64,
             // 0x1FFF_FFFF_FFFF_FFFF
@@ -99,18 +99,32 @@ mod tests {
             b: ModField::new(1, &cfg_field),
             cf: cfg_field,
         };
+        cfg_group
+    }
+
+    #[test]
+    fn back_forth() {
+        let cfg_group = cfg();
         let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
         for _ in 0..100 {
             let (pr, pb) = gen_keys::<_, u128, _>(&mut gen, &cfg_group);
-            // let msg = Point::random(&mut gen, &cfg_group);
-            let msg = Point::new(
-                ModField::new(369344026516415816, &cfg_group.cf),
-                ModField::new(20868581830, &cfg_group.cf),
-                &cfg_group,
-            );
+            let msg = Point::random(&mut gen, &cfg_group);
             let encrypted = pb.encrypt::<u128>(msg, &mut gen, &cfg_group);
             let decrypted = pr.decrypt(encrypted, &cfg_group);
             assert_eq!(msg, decrypted);
+        }
+    }
+
+    #[test]
+    fn key_persistance() {
+        let cfg_group = cfg();
+        let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
+        for _ in 0..100 {
+            let (pr, pb) = gen_keys::<_, u128, Point<ModField<u64>>>(&mut gen, &cfg_group);
+            let pr_new = PrivateKey::from_base64(&pr.base64());
+            assert_eq!(pr, pr_new);
+            let pb_new = PublicKey::from_base64(&pb.base64());
+            assert_eq!(pb, pb_new);
         }
     }
 }

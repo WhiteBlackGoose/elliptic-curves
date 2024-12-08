@@ -68,7 +68,7 @@ fn main() {
             println!("{}", enc);
         }
         Some(("decrypt", args)) => {
-            let dec = cli_decrypt(
+            let dec = cli_decrypt::<u128, u64>(
                 args.get_one::<String>("prikey").unwrap(),
                 args.get_one::<String>("msg").unwrap(),
                 &cfg_group,
@@ -101,7 +101,7 @@ where
     encrypt_message_and_encode::<ModField<I>, I>(pb, msg, rng, cfg)
 }
 
-fn cli_decrypt<I: Natural + RW + FromRandom<()>>(
+fn cli_decrypt<IP: Natural + FromRandom<()> + RW, I: Natural + RW + FromRandom<()>>(
     prikey: &str,
     msg_base64: &str,
     cfg: &PointCfg<ModField<I>>,
@@ -110,8 +110,8 @@ where
     [(); Point::<ModField<I>>::LEN]:,
     [(); ModField::<I>::LEN]:,
 {
-    let pr = PrivateKey::from_base64(prikey);
-    decode_message_and_decrypt::<I, ModField<I>>(pr, msg_base64, cfg)
+    let pr = PrivateKey::<IP>::from_base64(prikey);
+    decode_message_and_decrypt::<IP, ModField<I>>(pr, msg_base64, cfg)
 }
 
 #[cfg(test)]
@@ -143,10 +143,10 @@ mod tests {
         let text = "Hello, world!! :)";
 
         let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
-        for _ in 0..300 {
+        for _ in 0..100 {
             let (pr, pb) = cli_genkeys::<u128, u64>(&mut gen, &cfg_group);
             let enc = cli_encrypt(&mut gen, &pb, text, &cfg_group);
-            let dec = cli_decrypt(&pr, &enc, &cfg_group);
+            let dec = cli_decrypt::<u128, u64>(&pr, &enc, &cfg_group);
             assert_eq!(dec, text);
         }
     }

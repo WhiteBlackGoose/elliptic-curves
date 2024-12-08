@@ -102,3 +102,20 @@ macro_rules! impl_stuff {
 impl_stuff!(u64);
 impl_stuff!(u128);
 impl_stuff!(u8);
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use super::RW;
+
+    #[test]
+    fn data_persistance() {
+        let n: u128 = 101793696879097904749597416266766297740;
+        let mut buf = vec![];
+        n.to_bytes(&mut buf);
+        let mut cur = Cursor::new(&buf);
+        let c = u128::from_bytes(&mut cur);
+        assert_eq!(n, c);
+    }
+}

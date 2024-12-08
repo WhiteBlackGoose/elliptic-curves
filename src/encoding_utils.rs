@@ -113,8 +113,8 @@ where
     points_to_base64(encrypted.into_iter())
 }
 
-pub fn decode_message_and_decrypt<I: RW + Natural, F: RW + Field + Capacitor>(
-    key: PrivateKey<I>,
+pub fn decode_message_and_decrypt<IP: RW + Natural, F: RW + Field + Capacitor>(
+    key: PrivateKey<IP>,
     msg_base64: &str,
     cfg: &PointCfg<F>,
 ) -> String
