@@ -14,8 +14,8 @@ pub trait CommutativeOp<Op>: Configurable {
             self
         } else {
             let m = n / I::two();
-            let r = self.exp(n, cfg);
-            if m % I::two() == I::zero() {
+            let r = self.exp(m, cfg);
+            if n % I::two() == I::zero() {
                 CommutativeOp::op(r, r, cfg)
             } else {
                 CommutativeOp::op(r, CommutativeOp::op(r, self, cfg), cfg)
@@ -107,5 +107,60 @@ pub trait Field:
     }
     fn cube(self, cfg: &Self::Cfg) -> Self {
         Self::mul(Self::sqr(self, cfg), self, cfg)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        algebra::{CommutativeMonoid, Identity},
+        mod_field::ModFieldCfg,
+    };
+
+    use super::{ops, CommutativeOp, Configurable};
+
+    #[derive(Clone, Copy)]
+    struct Q {
+        val: u32,
+    }
+    impl Configurable for Q {
+        type Cfg = ();
+    }
+    impl CommutativeOp<ops::Add> for Q {
+        fn op(a: Self, b: Self, _c: &Self::Cfg) -> Self {
+            Q { val: a.val + b.val }
+        }
+    }
+    #[test]
+    fn exp1() {
+        let q = Q { val: 7 };
+        assert_eq!(CommutativeOp::exp(q, 9u64, &()).val, 63);
+    }
+    #[test]
+    fn exp2() {
+        let q = Q { val: 7 };
+        assert_eq!(CommutativeOp::exp(q, 6u64, &()).val, 42);
+    }
+    #[test]
+    fn exp3() {
+        let q = Q { val: 7 };
+        assert_eq!(CommutativeOp::exp(q, 1u64, &()).val, 7);
+    }
+    #[test]
+    #[should_panic]
+    fn exp4() {
+        let q = Q { val: 7 };
+        CommutativeOp::exp(q, 0u64, &());
+    }
+    #[test]
+    fn exp5() {
+        impl Identity<ops::Add> for Q {
+            fn identity(_c: &Self::Cfg) -> Self {
+                Self { val: 1234 }
+            }
+        }
+        impl CommutativeMonoid<ops::Add> for Q {}
+        let q = Q { val: 7 };
+        assert_eq!(CommutativeMonoid::exp(q, 0u64, &()).val, 1234);
     }
 }

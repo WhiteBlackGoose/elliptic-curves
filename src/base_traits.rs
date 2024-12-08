@@ -63,8 +63,7 @@ pub trait RW: Sized {
 macro_rules! impl_stuff {
     ($ty:ident) => {
         impl RW for $ty {
-            // -1 so we reserve one byte for padding
-            const LEN: usize = size_of::<Self>() - 1;
+            const LEN: usize = size_of::<Self>();
 
             fn to_bytes(self, w: &mut impl Write) -> usize {
                 w.write(&self.to_le_bytes()).unwrap()

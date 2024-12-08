@@ -94,7 +94,8 @@ fn cli_encrypt<I: Natural + RW + FromRandom<()>>(
     cfg: &PointCfg<ModField<I>>,
 ) -> String
 where
-    [(); ModField::<I>::LEN]:,
+    [(); ModField::<I>::LEN - 1]:,
+    [(); Point::<ModField<I>>::LEN]:,
 {
     let pb = PublicKey::from_base64(pubkey);
     encrypt_message_and_encode::<ModField<I>, I>(pb, msg, rng, cfg)
@@ -102,7 +103,7 @@ where
 
 fn cli_decrypt<I: Natural + RW + FromRandom<()>>(
     prikey: &str,
-    msg: &str,
+    msg_base64: &str,
     cfg: &PointCfg<ModField<I>>,
 ) -> String
 where
@@ -110,7 +111,7 @@ where
     [(); ModField::<I>::LEN]:,
 {
     let pr = PrivateKey::from_base64(prikey);
-    decode_message_and_decrypt::<I, ModField<I>>(pr, msg, cfg)
+    decode_message_and_decrypt::<I, ModField<I>>(pr, msg_base64, cfg)
 }
 
 #[cfg(test)]
@@ -140,6 +141,7 @@ mod tests {
         };
 
         let text = "Hello, world!! :)";
+        println!("{:?}", text.bytes());
 
         let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
         for _ in 0..300 {

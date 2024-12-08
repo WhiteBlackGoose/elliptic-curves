@@ -94,11 +94,7 @@ impl<F: Field + DiscreteRoot<algebra::ops::Mul>> Point<F> {
             cp.b,
             &cp.cf,
         );
-        if let Some(yres) = y2.sqrt(&cp.cf) {
-            Some(Self::new(x, yres, cp))
-        } else {
-            None
-        }
+        y2.sqrt(&cp.cf).map(|yres| Self::new(x, yres, cp))
     }
 }
 

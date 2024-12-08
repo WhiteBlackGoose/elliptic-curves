@@ -81,7 +81,7 @@ impl<I: Natural> Identity<algebra::ops::Add> for ModField<I> {
 
 impl<I: Natural> CommutativeOp<algebra::ops::Mul> for ModField<I> {
     fn op(a: Self, b: Self, c: &ModFieldCfg<I>) -> Self {
-        CommutativeOp::<algebra::ops::Add>::exp(a, b.val, c)
+        CommutativeMonoid::<algebra::ops::Add>::exp(a, b.val, c)
     }
 }
 impl<I: Natural> Identity<algebra::ops::Mul> for ModField<I> {

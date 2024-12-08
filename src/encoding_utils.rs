@@ -22,7 +22,7 @@ fn bytes_to_point<F: Field + RW + DiscreteRoot<algebra::ops::Mul>, I: Natural + 
         if let Some(point) = Point::from_x(x, cfg) {
             return point;
         }
-        quintuple[size_of::<I>() - 1] += 1;
+        quintuple[F::LEN - 1] += 1;
     }
 }
 
@@ -31,10 +31,11 @@ pub fn text_to_points<F: Field + RW + DiscreteRoot<algebra::ops::Mul>, I: Natura
     cfg: &PointCfg<F>,
 ) -> Vec<Point<F>>
 where
-    [(); F::LEN]:,
+    [(); F::LEN - 1]:,
 {
     let bytes = text.as_bytes();
-    let mut iter = bytes.iter().copied().array_chunks::<{ F::LEN }>();
+    // -1 so we reserve one byte for padding
+    let mut iter = bytes.iter().copied().array_chunks::<{ F::LEN - 1 }>();
     let mut res = vec![];
     for chunk in iter.by_ref() {
         res.push(bytes_to_point::<F, I>(&chunk, cfg));
@@ -49,7 +50,8 @@ pub fn points_to_text<F: RW + Field>(points: impl Iterator<Item = Point<F>>) -> 
     let mut bytes = vec![];
     let mut buf = vec![];
     for point in points {
-        let b = point.to_bytes(&mut buf);
+        buf.clear();
+        let b = point.x().to_bytes(&mut buf);
         for v in 0..b.min(F::LEN - 1) {
             if buf[v] == 0x00 {
                 break;
@@ -92,7 +94,7 @@ pub fn encrypt_message_and_encode<
     cfg: &PointCfg<F>,
 ) -> String
 where
-    [(); F::LEN]:,
+    [(); F::LEN - 1]:,
 {
     let points = text_to_points::<F, I>(msg, cfg);
     let encrypted = points.iter().flat_map(|p| {
@@ -144,9 +146,16 @@ mod tests {
             b: ModField::new(1, &cfg_field),
             cf: cfg_field,
         };
-        let text = "Hello, world";
-        let points = text_to_points::<_, u64>(text, &cfg_group);
-        let text2 = points_to_text(points.iter().copied());
-        assert_eq!(text, text2);
+        let texts = [
+            "Hello, world",
+            "Aaa",
+            "A very long sentence actually, yeah",
+            "Hello, world!! :)",
+        ];
+        for text in texts {
+            let points = text_to_points::<_, u64>(text, &cfg_group);
+            let text2 = points_to_text(points.iter().copied());
+            assert_eq!(text, text2);
+        }
     }
 }
