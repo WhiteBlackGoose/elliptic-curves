@@ -3,8 +3,7 @@
 ECC - elliptic curves cryptography. This is just my hello world project to learn a bit about ECC. A few details about this project:
 
 - Curve: $y^2 = x^3 + 100x + 1$
-- Field: over 0x0014_4C3B_27FF
-- Initial point: 25000, 125001
+- Key: 128bit
 
 Usage: see `--help`.
 

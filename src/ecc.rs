@@ -5,18 +5,21 @@ use rand::Rng;
 
 use crate::field::Field;
 
+// https://en.wikipedia.org/wiki/List_of_prime_numbers
 const MOD: u64 = 0x0014_4C3B_27FF;
 pub type Zp = Field<MOD>;
+const A: Zp = Zp::new(100);
+const B: Zp = Zp::new(1);
+const G: Point = Point {
+    x: Zp::new(2500),
+    y: Zp::new(125001),
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Point {
     x: Zp,
     y: Zp,
 }
-
-const A: Zp = Zp::new(100);
-const B: Zp = Zp::new(1);
-// https://en.wikipedia.org/wiki/List_of_prime_numbers
 
 fn curve(x: Zp, y: Zp) -> bool {
     y * y == x * x * x + A * x + B
@@ -75,11 +78,6 @@ impl Point {
         Self::new(Zp::new(x), Zp::new(y))
     }
 }
-
-const G: Point = Point {
-    x: Zp::new(2500),
-    y: Zp::new(125001),
-};
 
 impl ops::Add for Point {
     type Output = Point;
