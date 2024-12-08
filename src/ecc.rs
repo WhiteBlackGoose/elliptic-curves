@@ -1,12 +1,9 @@
-use std::ops;
-
-use base64::{prelude::BASE64_STANDARD, Engine};
 use rand::Rng;
 
 use crate::{
-    algebra::{self, CommutativeOp, InitialPoint, Inverse},
+    algebra::{self, CommutativeOp, Field, InitialPoint, Inverse},
     base_traits::{FromRandom, Natural, RW},
-    mod_field::ModField,
+    mod_field::{ModField, ModFieldCfg},
     points_group::{Point, PointCfg},
 };
 
@@ -16,26 +13,29 @@ pub struct PrivateKey<I>(I);
 #[derive(Clone, Copy, Debug)]
 pub struct PublicKey<P>(P);
 
-fn rand_u128(r: &mut impl Rng) -> u128 {
-    ((r.next_u64() as u128) << 64) + r.next_u64() as u128
-}
-
-pub fn gen_keys<R: Rng, I: FromRandom + Natural, P: CommutativeOp<algebra::ops::Add>>(
+pub fn gen_keys<R: Rng, I: FromRandom<()> + Natural, P: CommutativeOp<algebra::ops::Add>>(
     r: &mut R,
-    g: P,
     cfg: &P::Cfg,
-) -> (PrivateKey<I>, PublicKey<P>) {
-    let pri = I::random(r);
-    let pub_ = P::exp(g, pri, cfg);
+) -> (PrivateKey<I>, PublicKey<P>)
+where
+    P::Cfg: InitialPoint<P>,
+{
+    let pri = I::random(r, &());
+    let pub_ = P::exp(cfg.g(), pri, cfg);
     (PrivateKey(pri), PublicKey(pub_))
 }
 
-impl<P: CommutativeOp<algebra::ops::Add> + RW, I: Natural + FromRandom> PublicKey<P>
+impl<P: CommutativeOp<algebra::ops::Add> + RW> PublicKey<P>
 where
     <P as algebra::Configurable>::Cfg: InitialPoint<P>,
 {
-    pub fn encrypt(self, msg: P, rng: &mut impl Rng, cfg: &P::Cfg) -> (P, P) {
-        let t = I::random(rng);
+    pub fn encrypt<I: Natural + FromRandom<()>>(
+        self,
+        msg: P,
+        rng: &mut impl Rng,
+        cfg: &P::Cfg,
+    ) -> (P, P) {
+        let t = I::random(rng, &());
         let c1 = P::exp(InitialPoint::g(cfg), t, cfg);
         let c2 = P::op(P::exp(self.0, t, cfg), msg, cfg);
         (c1, c2)
@@ -68,23 +68,37 @@ impl<I: Natural + RW> PrivateKey<I> {
     }
 }
 
-pub fn bytes_to_zp(input: &[u8]) -> Zp {
-    let mut bytes = [0x00u8; 8];
-    bytes[0..input.len()].copy_from_slice(input);
-    Zp::new(u64::from_le_bytes(bytes))
-}
-
 #[cfg(test)]
 mod tests {
+    use rand::SeedableRng;
+
+    use crate::{
+        ecc::gen_keys,
+        mod_field::{ModField, ModFieldCfg},
+        points_group::{Point, PointCfg},
+    };
 
     #[test]
     fn back_forth() {
+        let cfg_field = ModFieldCfg {
+            rem: 0x0014_4C3B_27FFu64,
+            // 0x1FFF_FFFF_FFFF_FFFF
+        };
+        let cfg_group = PointCfg {
+            g: Point::new_unsafe(
+                ModField::new(2500, &cfg_field),
+                ModField::new(125001, &cfg_field),
+            ),
+            a: ModField::new(100, &cfg_field),
+            b: ModField::new(1, &cfg_field),
+            cf: cfg_field,
+        };
         let mut gen = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
         for _ in 0..100 {
-            let (pr, pb) = gen_keys(&mut gen);
-            let msg = Point::random(&mut gen);
-            let encrypted = pb.encrypt(msg, &mut gen);
-            let decrypted = pr.decrypt(encrypted);
+            let (pr, pb) = gen_keys::<_, u128, _>(&mut gen, &cfg_group);
+            let msg = Point::random(&mut gen, &cfg_group);
+            let encrypted = pb.encrypt::<u128>(msg, &mut gen, &cfg_group);
+            let decrypted = pr.decrypt(encrypted, &cfg_group);
             assert_eq!(msg, decrypted);
         }
     }

@@ -16,15 +16,15 @@ pub struct Point<F> {
     y: F,
 }
 
-pub struct PointCfg<CFG, F> {
+pub struct PointCfg<F: Field> {
     pub g: Point<F>,
     pub a: F,
     pub b: F,
-    pub cf: CFG,
+    pub cf: F::Cfg,
 }
 
 impl<F: Field> Configurable for Point<F> {
-    type Cfg = PointCfg<F::Cfg, F>;
+    type Cfg = PointCfg<F>;
 }
 
 impl<F: Field> Point<F> {
@@ -102,10 +102,13 @@ impl<F: Field + DiscreteRoot<algebra::ops::Mul>> Point<F> {
     }
 }
 
-impl<F: Field + FromRandom + DiscreteRoot<algebra::ops::Mul>> Point<F> {
+impl<F: Field + DiscreteRoot<algebra::ops::Mul>> Point<F>
+where
+    F: FromRandom<F::Cfg>,
+{
     pub fn random<R: Rng>(r: &mut R, cfg: &<Self as Configurable>::Cfg) -> Self {
         loop {
-            let x = F::random(r);
+            let x = F::random(r, &cfg.cf);
             if let Some(p) = Self::from_x(x, cfg) {
                 return p;
             }
@@ -114,8 +117,6 @@ impl<F: Field + FromRandom + DiscreteRoot<algebra::ops::Mul>> Point<F> {
 }
 
 impl<F: RW + Field> RW for Point<F> {
-    const LEN: usize = 2 * F::LEN;
-
     fn to_bytes(self, w: &mut impl Write) -> usize {
         self.x.to_bytes(w) + self.y.to_bytes(w)
     }
@@ -123,9 +124,11 @@ impl<F: RW + Field> RW for Point<F> {
     fn from_bytes(r: &mut impl Read) -> Self {
         Self::new_unsafe(F::from_bytes(r), F::from_bytes(r))
     }
+
+    const LEN: usize = F::LEN * 2;
 }
 
-impl<C, F: Copy> InitialPoint<Point<F>> for PointCfg<C, F> {
+impl<F: Field> InitialPoint<Point<F>> for PointCfg<F> {
     fn g(&self) -> Point<F> {
         self.g
     }
@@ -133,6 +136,7 @@ impl<C, F: Copy> InitialPoint<Point<F>> for PointCfg<C, F> {
 
 #[cfg(test)]
 mod tests {
+
     #[test]
     fn points_add_itself() {
         let a = Point::new(Zp::new(232), Zp::new(3537));

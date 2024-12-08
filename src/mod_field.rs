@@ -10,7 +10,7 @@ use crate::{
         self, AbelianGroup, CommutativeMonoid, CommutativeOp, Configurable, DiscreteRoot, Field,
         Identity, Inverse, InverseNonZero,
     },
-    base_traits::{FromRandom, Natural},
+    base_traits::{FromRandom, Natural, RW},
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -121,11 +121,14 @@ impl<I: Natural> ModField<I> {
         self.val
     }
 }
-impl<I: Natural + FromRandom> ModField<I> {
-    pub fn random<R: Rng>(r: &mut R, cfg: &ModFieldCfg<I>) -> Self {
-        Self::new(I::random(r), cfg)
-    }
 
+impl<I: Natural + FromRandom<()>> FromRandom<ModFieldCfg<I>> for ModField<I> {
+    fn random(r: &mut impl Rng, cfg: &ModFieldCfg<I>) -> Self {
+        Self::new(I::random(r, &()), cfg)
+    }
+}
+
+impl<I: Natural + FromRandom<()>> ModField<I> {
     pub fn random_nonzero<R: Rng>(r: &mut R, cfg: &ModFieldCfg<I>) -> Self {
         loop {
             let r = Self::random(r, cfg);
@@ -146,6 +149,20 @@ impl<I: Natural + Debug> std::fmt::Debug for ModField<I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.val.fmt(f)
     }
+}
+
+impl<I: Natural + RW> RW for ModField<I> {
+    fn to_bytes(self, w: &mut impl std::io::Write) -> usize {
+        self.val.to_bytes(w)
+    }
+
+    fn from_bytes(r: &mut impl std::io::Read) -> Self {
+        Self {
+            val: I::from_bytes(r),
+        }
+    }
+
+    const LEN: usize = I::LEN;
 }
 
 #[cfg(test)]

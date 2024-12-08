@@ -25,27 +25,19 @@ pub trait Natural:
     fn max() -> Self;
 }
 
-pub trait FromRandom {
-    fn random(rng: &mut impl Rng) -> Self;
+pub trait FromRandom<C> {
+    fn random(rng: &mut impl Rng, cfg: &C) -> Self;
 }
 
-impl Natural for u64 {
-    fn zero() -> Self {
-        0
-    }
-
-    fn one() -> Self {
-        1
-    }
-
-    fn max() -> Self {
-        u64::MAX
-    }
-}
-
-impl FromRandom for u64 {
-    fn random(rng: &mut impl Rng) -> Self {
+impl<T> FromRandom<T> for u64 {
+    fn random(rng: &mut impl Rng, _: &T) -> Self {
         rng.next_u64()
+    }
+}
+
+impl<T> FromRandom<T> for u128 {
+    fn random(rng: &mut impl Rng, _: &T) -> Self {
+        ((rng.next_u64() as u128) << 64) + rng.next_u64() as u128
     }
 }
 
@@ -67,3 +59,39 @@ pub trait RW: Sized {
         Self::from_bytes(&mut cur)
     }
 }
+
+macro_rules! impl_stuff {
+    ($ty:ident) => {
+        impl RW for $ty {
+            // -1 so we reserve one byte for padding
+            const LEN: usize = size_of::<Self>() - 1;
+
+            fn to_bytes(self, w: &mut impl Write) -> usize {
+                w.write(&self.to_le_bytes()).unwrap()
+            }
+
+            fn from_bytes(r: &mut impl Read) -> Self {
+                let mut buf = vec![0u8; size_of::<Self>()];
+                r.read_exact(&mut buf).unwrap();
+                Self::from_le_bytes(buf.try_into().unwrap())
+            }
+        }
+
+        impl Natural for $ty {
+            fn zero() -> Self {
+                0
+            }
+
+            fn one() -> Self {
+                1
+            }
+
+            fn max() -> Self {
+                $ty::MAX
+            }
+        }
+    };
+}
+
+impl_stuff!(u64);
+impl_stuff!(u128);
