@@ -1,5 +1,6 @@
-use crate::ecc::{bytes_to_zp, Point};
+use crate::ecc::{bytes_to_zp, Point, PrivateKey, PublicKey};
 use base64::prelude::*;
+use rand::Rng;
 
 fn bytes_to_point(bytes: &[u8]) -> Point {
     assert!(bytes.len() <= 4);
@@ -32,10 +33,10 @@ fn point_to_bytes(point: Point) -> [u8; 8] {
     x.to_le_bytes()
 }
 
-pub fn points_to_text(points: &[Point]) -> String {
+pub fn points_to_text(points: impl Iterator<Item = Point>) -> String {
     let mut bytes = vec![];
     for point in points {
-        let b = point_to_bytes(*point);
+        let b = point_to_bytes(point);
         for v in b.iter().take(4) {
             if *v == 0x00 {
                 break;
@@ -46,8 +47,8 @@ pub fn points_to_text(points: &[Point]) -> String {
     String::from_utf8(bytes).unwrap()
 }
 
-pub fn points_to_base64(points: &[Point]) -> String {
-    let bytes = points.iter().flat_map(|p| p.bytes()).collect::<Vec<_>>();
+pub fn points_to_base64(points: impl Iterator<Item = Point>) -> String {
+    let bytes = points.flat_map(|p| p.bytes()).collect::<Vec<_>>();
     BASE64_STANDARD.encode(bytes)
 }
 
@@ -60,4 +61,37 @@ pub fn base64_to_points(base64: &str) -> Vec<Point> {
         .array_chunks::<16>()
         .map(Point::from_bytes)
         .collect()
+}
+
+pub fn encrypt_message_and_encode(key: PublicKey, msg: &str, rng: &mut impl Rng) -> String {
+    let points = text_to_points(msg);
+    let encrypted = points.iter().flat_map(|p| {
+        let (c1, c2) = key.encrypt(*p, rng);
+        [c1, c2]
+    });
+    points_to_base64(encrypted)
+}
+
+pub fn decode_message_and_decrypt(key: PrivateKey, msg_base64: &str, rng: &mut impl Rng) -> String {
+    let points = base64_to_points(msg_base64);
+    assert!(points.len() % 2 == 0);
+    let decrypted = points
+        .iter()
+        .array_chunks::<2>()
+        .map(|[c1, c2]| key.decrypt((*c1, *c2)));
+    points_to_text(decrypted)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::{points_to_text, text_to_points};
+
+    #[test]
+    fn text2points2text() {
+        let text = "Hello, world";
+        let points = text_to_points(text);
+        let text2 = points_to_text(points.iter().copied());
+        assert_eq!(text, text2);
+    }
 }

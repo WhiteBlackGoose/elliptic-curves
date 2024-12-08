@@ -24,22 +24,6 @@ fn gcd(a: u64, b: u64) -> u64 {
     }
 }
 
-// returns: d, x, y
-fn extended_gcd(a: u64, b: u64) -> (u64, i64, i64) {
-    let (mut old_r, mut r) = (a as i64, b as i64);
-    let (mut old_s, mut s) = (1, 0);
-    let (mut old_t, mut t) = (0, 1);
-
-    while r != 0 {
-        let quotient = old_r / r;
-        (old_r, r) = (r, old_r - quotient * r);
-        (old_s, s) = (s, old_s - quotient * s);
-        (old_t, t) = (t, old_t - quotient * t);
-    }
-
-    (old_r as u64, old_s, old_t) // gcd, Bezout coefficients
-}
-
 impl<const P: u64> Field<P> {
     pub fn nat(self) -> u64 {
         self.v
@@ -55,9 +39,7 @@ impl<const P: u64> Field<P> {
 
     pub fn invert(self) -> Self {
         assert!(gcd(P, self.v) == 1, "a: {}", self);
-        // let (x, _y, _d) = extended_gcd(self.v as i64, P as i64);
-        // let (_d, x, y) = extended_gcd(self.v, P);
-        // Self::new(x as u64)
+        // Little Fermat's theorem
         self.pow(P - 2)
     }
 
