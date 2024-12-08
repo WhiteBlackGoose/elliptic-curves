@@ -2,19 +2,31 @@ use std::ops;
 
 use rand::Rng;
 
+use crate::groups::{
+    self, AbelianGroup, CommutativeOp, Field, Identity, Inverse, InverseNonZero, Natural,
+};
+
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct Field<const P: u64> {
-    v: u64,
+pub struct ModFieldCfg<I> {
+    rem: I,
 }
 
-fn gcd(a: u64, b: u64) -> u64 {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct ModField<I: Natural> {
+    val: I,
+}
+
+fn gcd<S>(a: S, b: S) -> S
+where
+    S: Natural,
+{
     if a == b {
         return a;
     }
-    if a == 0 {
+    if a == S::zero() {
         return b;
     }
-    if b == 0 {
+    if b == S::zero() {
         return a;
     }
     if a > b {
@@ -24,26 +36,62 @@ fn gcd(a: u64, b: u64) -> u64 {
     }
 }
 
-impl<const P: u64> Field<P> {
-    pub fn nat(self) -> u64 {
+impl<I: Natural> CommutativeOp<groups::ops::Add, ModFieldCfg<I>> for ModField<I> {
+    fn op(a: Self, b: Self, c: &ModFieldCfg<I>) -> Self {
+        todo!()
+    }
+}
+
+impl<I: Natural> Inverse<groups::ops::Add, ModFieldCfg<I>> for ModField<I> {
+    fn inv(self, cfg: &ModFieldCfg<I>) -> Self {
+        Self {
+            val: cfg.rem - self.val,
+        }
+    }
+}
+
+impl<I: Natural> Identity<groups::ops::Add, ModFieldCfg<I>> for ModField<I> {
+    fn identity(c: &ModFieldCfg<I>) -> Self {
+        Self { val: I::zero() }
+    }
+}
+
+impl<I: Natural> AbelianGroup<groups::ops::Add, ModFieldCfg<I>> for ModField<I> {
+    fn zero(_cfg: &ModFieldCfg<I>) -> Self {
+        Self { val: I::zero() }
+    }
+}
+
+impl<I: Natural> CommutativeOp<groups::ops::Mul, ModFieldCfg<I>> for ModField<I> {
+    fn op(a: Self, b: Self, c: &ModFieldCfg<I>) -> Self {
+        todo!()
+    }
+}
+
+impl<I: Natural> InverseNonZero<groups::ops::Mul, ModFieldCfg<I>> for ModField<I> {
+    fn inv(self, c: &ModFieldCfg<I>) -> Option<Self> {
+        assert!(gcd(c.rem, self.nat()) == I::one(), "can't mul invert");
+        // Little Fermat's theorem
+        self.pow(c.rem - I::two())
+    }
+}
+
+impl<I: Natural> Identity<groups::ops::Mul, ModFieldCfg<I>> for ModField<I> {
+    fn identity(_c: &ModFieldCfg<I>) -> Self {
+        Self { val: I::one() }
+    }
+}
+
+impl<I: Natural> Field<ModFieldCfg<I>> for ModField<I> {}
+
+impl<F: Natural> ModField<F> {
+    pub fn nat(self) -> F {
         self.v
     }
 
-    pub const fn zero() -> Self {
-        Self::new(0)
-    }
+    pub fn invert(self) -> Self {}
 
-    pub const fn one() -> Self {
-        Self::new(1)
-    }
-
-    pub fn invert(self) -> Self {
-        assert!(gcd(P, self.v) == 1, "a: {}", self);
-        // Little Fermat's theorem
-        self.pow(P - 2)
-    }
-
-    pub fn pow(self, p: u64) -> Self {
+    pub fn pow(self, p: S) -> Self {
         if p == 0 {
             Self::new(1)
         } else if p == 1 {
@@ -56,7 +104,7 @@ impl<const P: u64> Field<P> {
     }
 
     pub fn random<R: Rng>(r: &mut R) -> Self {
-        let l = r.next_u64();
+        let l = r.next_S();
         Self::new(l)
     }
 
@@ -81,61 +129,61 @@ impl<const P: u64> Field<P> {
     }
 }
 
-impl<const P: u64> std::fmt::Display for Field<P> {
+impl<const P: S> std::fmt::Display for ModField<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.v.fmt(f)
     }
 }
 
-impl<const P: u64> std::fmt::Debug for Field<P> {
+impl<const P: S> std::fmt::Debug for ModField<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.v.fmt(f)
     }
 }
 
-impl<const P: u64> Field<P> {
-    pub const fn new(p: u64) -> Self {
+impl<const P: S> ModField<P> {
+    pub const fn new(p: S) -> Self {
         Self { v: p % P }
     }
 }
 
-impl<const P: u64> ops::Add for Field<P> {
-    type Output = Field<P>;
+impl<const P: S> ops::Add for ModField<P> {
+    type Output = ModField<P>;
 
     fn add(self, rhs: Self) -> Self::Output {
         let v1 = self.v as i128;
         let v2 = rhs.v as i128;
         Self {
-            v: ((v1 + v2) % (P as i128)) as u64,
+            v: ((v1 + v2) % (P as i128)) as S,
         }
     }
 }
 
-impl<const P: u64> ops::Mul for Field<P> {
-    type Output = Field<P>;
+impl<const P: S> ops::Mul for ModField<P> {
+    type Output = ModField<P>;
 
     fn mul(self, rhs: Self) -> Self::Output {
         let v1 = self.v as i128;
         let v2 = rhs.v as i128;
         Self {
-            v: ((v1 * v2) % (P as i128)) as u64,
+            v: ((v1 * v2) % (P as i128)) as S,
         }
     }
 }
 
-impl<const P: u64> ops::Sub for Field<P> {
-    type Output = Field<P>;
+impl<const P: S> ops::Sub for ModField<P> {
+    type Output = ModField<P>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         let v1 = self.v as i128;
         let v2 = rhs.v as i128;
         Self {
-            v: ((v1 - v2).rem_euclid(P as i128)) as u64,
+            v: ((v1 - v2).rem_euclid(P as i128)) as S,
         }
     }
 }
 
-impl<const P: u64> ops::Neg for Field<P> {
+impl<const P: S> ops::Neg for ModField<P> {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -143,8 +191,8 @@ impl<const P: u64> ops::Neg for Field<P> {
     }
 }
 
-impl<const P: u64> ops::Div for Field<P> {
-    type Output = Field<P>;
+impl<const P: S> ops::Div for ModField<P> {
+    type Output = ModField<P>;
 
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn div(self, rhs: Self) -> Self::Output {
@@ -156,8 +204,8 @@ impl<const P: u64> ops::Div for Field<P> {
 mod tests {
     use rand::{RngCore, SeedableRng};
 
-    use crate::field::{gcd, Field};
-    type F = Field<19>;
+    use crate::mod_field::{gcd, ModField};
+    type F = ModField<19>;
 
     #[test]
     fn simple() {

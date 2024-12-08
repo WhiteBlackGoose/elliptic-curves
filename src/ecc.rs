@@ -3,13 +3,20 @@ use std::ops;
 use base64::{prelude::BASE64_STANDARD, Engine};
 use rand::Rng;
 
-use crate::field::Field;
+use crate::mod_field::ModField;
+
+pub struct Curve {}
 
 // https://en.wikipedia.org/wiki/List_of_prime_numbers
+// const MOD: u64 = 0x1FFF_FFFF_FFFF_FFFF;
 const MOD: u64 = 0x0014_4C3B_27FF;
-pub type Zp = Field<MOD>;
+pub type Zp = ModField;
 const A: Zp = Zp::new(100);
 const B: Zp = Zp::new(1);
+// const G: Point = Point {
+//     x: Zp::new(130434259649367612),
+//     y: Zp::new(2048033158890624626),
+// };
 const G: Point = Point {
     x: Zp::new(2500),
     y: Zp::new(125001),

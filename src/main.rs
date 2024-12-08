@@ -8,7 +8,8 @@ use rand::Rng;
 
 mod ecc;
 mod encoding_utils;
-mod field;
+mod groups;
+mod mod_field;
 
 fn main() {
     let matches = Command::new("xxx")
