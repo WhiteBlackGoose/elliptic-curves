@@ -152,7 +152,7 @@ impl PublicKey {
     pub fn base64(self) -> String {
         let mut bytes = [0u8; 16];
         bytes[..8].copy_from_slice(&self.0.x.nat().to_le_bytes());
-        bytes[8..].copy_from_slice(&self.0.x.nat().to_le_bytes());
+        bytes[8..].copy_from_slice(&self.0.y.nat().to_le_bytes());
         BASE64_STANDARD.encode(bytes)
     }
 
