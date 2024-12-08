@@ -19,6 +19,9 @@ mod encoding_utils;
 mod mod_field;
 mod points_group;
 
+type DATATYPE_SCALAR = u128;
+type DATATYPE_SHORT = u64;
+
 fn main() {
     let cfg_field = ModFieldCfg {
         rem: 0x0014_4C3B_27FFu64,
@@ -54,7 +57,7 @@ fn main() {
 
     match matches.subcommand() {
         Some(("genkey", _)) => {
-            let (pr, pb) = cli_genkeys::<u128, u64>(&mut rng, &cfg_group);
+            let (pr, pb) = cli_genkeys::<DATATYPE_SCALAR, DATATYPE_SHORT>(&mut rng, &cfg_group);
             println!("PRIVATE: {}", pr);
             println!("PUBLIC: {}", pb);
         }
