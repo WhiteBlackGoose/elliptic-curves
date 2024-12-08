@@ -70,6 +70,13 @@ pub trait Field:
         let one = Self::one(cfg);
         Self::add(one, one, cfg)
     }
+    fn three(cfg: &Self::Cfg) -> Self {
+        Self::add(Self::two(cfg), Self::one(cfg), cfg)
+    }
+    fn four(cfg: &Self::Cfg) -> Self {
+        let two = Self::two(cfg);
+        Self::add(two, two, cfg)
+    }
     fn pow<N: Natural>(self, n: N, cfg: &Self::Cfg) -> Self {
         CommutativeMonoid::<ops::Mul>::exp(self, n, cfg)
     }
