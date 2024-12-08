@@ -1,9 +1,10 @@
 # My naive implementation of ECC
 
-ECC - elliptic curves cryptography. This is just my hello world project to learn a bit about ECC. A few details about this project:
+ECC - elliptic curves cryptography. This is just my hello world project to learn a bit about ECC.
 
-- Curve: $y^2 = x^3 + 100x + 1$
-- Key: 128bit
+It works in general case with any length of key as long as the types implement a list of traits. `algebra.rs` contains all relevant traits from group theory, and `base_traits.rs` also some technical traits, that's how keys and elements of the group can be substituted.
+
+As a default, I use `secp256k1` with the bitcoin's parameters, because why not.
 
 Usage: see `--help`.
 
