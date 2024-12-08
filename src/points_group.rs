@@ -136,18 +136,61 @@ impl<F: Field> InitialPoint<Point<F>> for PointCfg<F> {
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        algebra::{self, CommutativeOp},
+        mod_field::{ModField, ModFieldCfg},
+    };
+
+    use super::{Point, PointCfg};
+
+    fn cfg() -> PointCfg<ModField<u64>> {
+        let cfg_field = ModFieldCfg {
+            rem: 0x0014_4C3B_27FFu64,
+            // 0x1FFF_FFFF_FFFF_FFFF
+        };
+        let cfg_group = PointCfg {
+            g: Point::new_unsafe(
+                ModField::new(2500, &cfg_field),
+                ModField::new(125001, &cfg_field),
+            ),
+            a: ModField::new(100, &cfg_field),
+            b: ModField::new(1, &cfg_field),
+            cf: cfg_field,
+        };
+        cfg_group
+    }
+
+    #[test]
+    fn g_exists() {
+        let cfg = cfg();
+        Point::new(cfg.g.x(), cfg.g.y(), &cfg);
+    }
+
+    fn p(x: u64, y: u64) -> Point<ModField<u64>> {
+        Point::new(
+            ModField::new(x, &cfg().cf),
+            ModField::new(y, &cfg().cf),
+            &cfg(),
+        )
+    }
 
     #[test]
     fn points_add_itself() {
-        let a = Point::new(Zp::new(232), Zp::new(3537));
-        assert_eq!(a + a, Point::new(Zp::new(74095187791), Zp::new(9434911276)));
+        let a = p(232, 3537);
+        assert_eq!(
+            CommutativeOp::<algebra::ops::Add>::op(a, a, &cfg()),
+            p(74095187791, 9434911276)
+        );
     }
 
     // http://christelbach.com/ECCalculator.aspx
     #[test]
     fn points_add_two() {
-        let a = Point::new(Zp::new(82226830584), Zp::new(16727101863));
-        let b = Point::new(Zp::new(17120951320), Zp::new(15809323217));
-        assert_eq!(a + b, Point::new(Zp::new(3851261364), Zp::new(66206903692)));
+        let a = p(82226830584, 16727101863);
+        let b = p(17120951320, 15809323217);
+        assert_eq!(
+            CommutativeOp::<algebra::ops::Add>::op(a, b, &cfg()),
+            p(3851261364, 66206903692)
+        );
     }
 }

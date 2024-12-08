@@ -171,6 +171,7 @@ mod tests {
 
     use crate::{
         algebra::Field,
+        base_traits::FromRandom,
         mod_field::{gcd, ModField},
     };
 
@@ -223,22 +224,22 @@ mod tests {
 
     #[test]
     fn gcd1() {
-        assert_eq!(gcd(11, 1), 1);
+        assert_eq!(gcd(11u64, 1), 1);
     }
 
     #[test]
     fn gcd2() {
-        assert_eq!(gcd(12, 10), 2);
+        assert_eq!(gcd(12u64, 10), 2);
     }
 
     #[test]
     fn gcd3() {
-        assert_eq!(gcd(1224832904, 1), 1);
+        assert_eq!(gcd(1224832904u64, 1), 1);
     }
 
     #[test]
     fn gcd4() {
-        assert_eq!(gcd(123, 66), 3);
+        assert_eq!(gcd(123u64, 66), 3);
     }
 
     #[test]
